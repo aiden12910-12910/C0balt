@@ -2,87 +2,163 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>C0balt</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>C0balt · For You</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
+        html, body {
+            height: 100%;
+            background: #000;
+            color: #fff;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: #0f0f13;
-            color: #e0e0e0;
-            min-height: 100vh;
+            overflow: hidden;
         }
-        header {
-            text-align: center;
-            padding: 40px 20px 20px;
-            border-bottom: 1px solid #2a2a35;
+
+        /* 顶部品牌栏 */
+        .topbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent);
+            pointer-events: none;
         }
-        header h1 {
-            font-size: 42px;
-            letter-spacing: 4px;
+        .topbar h1 {
+            font-size: 20px;
+            letter-spacing: 3px;
             color: #4ea8de;
             font-weight: 700;
         }
-        header p {
-            color: #888;
-            margin-top: 8px;
-            font-size: 14px;
+
+        /* 滑动容器 */
+        .feed {
+            height: 100vh;
+            overflow-y: scroll;
+            scroll-snap-type: y mandatory;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
         }
-        #video-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 20px;
-            padding: 30px;
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-        .video-card {
-            background: #1a1a22;
-            border: 1px solid #2a2a35;
-            border-radius: 10px;
-            overflow: hidden;
-            transition: transform 0.2s;
-        }
-        .video-card:hover {
-            transform: translateY(-2px);
-            border-color: #4ea8de;
-        }
-        .video-card video {
-            width: 100%;
-            display: block;
+        .feed::-webkit-scrollbar { display: none; }
+
+        /* 单个视频卡片 */
+        .video-slide {
+            height: 100vh;
+            scroll-snap-align: start;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             background: #000;
         }
-        .video-card p {
-            padding: 10px 12px;
-            font-size: 12px;
-            color: #888;
-            word-break: break-all;
+        .video-slide video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #000;
         }
-        #loading {
+
+        /* 底部文件名（替代标题） */
+        .video-meta {
+            position: absolute;
+            bottom: 20px;
+            left: 16px;
+            right: 80px;
+            z-index: 10;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+            font-size: 13px;
+            color: #fff;
+            word-break: break-all;
+            pointer-events: none;
+        }
+
+        /* 右侧按钮列 */
+        .side-actions {
+            position: absolute;
+            right: 12px;
+            bottom: 80px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+            z-index: 10;
+        }
+        .action-btn {
+            background: rgba(255,255,255,0.15);
+            border: none;
+            color: #fff;
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+            transition: background 0.2s;
+        }
+        .action-btn:hover { background: rgba(255,255,255,0.3); }
+
+        /* 静音提示 */
+        .mute-hint {
+            position: absolute;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.6);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            color: #fff;
+            z-index: 50;
+            opacity: 0;
+            transition: opacity 0.4s;
+            pointer-events: none;
+        }
+        .mute-hint.show { opacity: 1; }
+
+        /* Loading / 错误 */
+        .status {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #888;
+            font-size: 14px;
             text-align: center;
-            padding: 60px;
-            color: #666;
-            grid-column: 1 / -1;
+            padding: 20px;
         }
     </style>
 </head>
 <body>
-    <header>
+
+    <div class="topbar">
         <h1>C0balt</h1>
-        <p>My TikTok Video Collection</p>
-    </header>
-    <main id="video-grid">
-        <p id="loading">Loading videos...</p>
-    </main>
+    </div>
+
+    <div class="mute-hint" id="muteHint">Tap to unmute</div>
+
+    <div class="feed" id="feed">
+        <div class="status" id="status">Loading videos...</div>
+    </div>
 
     <script>
         const HF_USER = "aiden12910";
         const HF_REPO = "tiktok-videos";
         const HF_API = `https://huggingface.co/api/models/${HF_USER}/${HF_REPO}`;
 
+        let globalMuted = true; // 默认静音
+        let currentPlayingVideo = null;
+
         async function loadVideos() {
-            const grid = document.getElementById("video-grid");
-            const loading = document.getElementById("loading");
+            const feed = document.getElementById("feed");
+            const status = document.getElementById("status");
+
             try {
                 const res = await fetch(HF_API);
                 if (!res.ok) throw new Error("Failed to fetch repo info");
@@ -93,27 +169,110 @@
                     .filter(name => name.toLowerCase().endsWith(".mp4"));
 
                 if (videos.length === 0) {
-                    loading.textContent = "No videos yet.";
+                    status.textContent = "No videos yet.";
                     return;
                 }
 
-                loading.remove();
-                videos.forEach(name => {
-                    const card = document.createElement("div");
-                    card.className = "video-card";
+                feed.innerHTML = ""; // 清掉 loading
+
+                videos.forEach((name, index) => {
+                    const slide = document.createElement("div");
+                    slide.className = "video-slide";
+                    slide.dataset.index = index;
+
                     const video = document.createElement("video");
-                    video.controls = true;
-                    video.preload = "metadata";
                     video.src = `https://huggingface.co/${HF_USER}/${HF_REPO}/resolve/main/${encodeURIComponent(name)}`;
-                    card.appendChild(video);
-                    const title = document.createElement("p");
-                    title.textContent = name;
-                    card.appendChild(title);
-                    grid.appendChild(card);
+                    video.loop = true;
+                    video.playsInline = true;
+                    video.muted = true;
+                    video.preload = "metadata";
+                    video.setAttribute("webkit-playsinline", "");
+
+                    const meta = document.createElement("div");
+                    meta.className = "video-meta";
+                    meta.textContent = name;
+
+                    const actions = document.createElement("div");
+                    actions.className = "side-actions";
+
+                    // 静音/取消静音按钮
+                    const muteBtn = document.createElement("button");
+                    muteBtn.className = "action-btn";
+                    muteBtn.textContent = "🔇";
+                    muteBtn.title = "Toggle mute";
+                    muteBtn.addEventListener("click", (e) => {
+                        e.stopPropagation();
+                        globalMuted = !globalMuted;
+                        video.muted = globalMuted;
+                        muteBtn.textContent = globalMuted ? "🔇" : "🔊";
+                        showMuteHint(globalMuted ? "Muted" : "Unmuted");
+                    });
+
+                    actions.appendChild(muteBtn);
+
+                    slide.appendChild(video);
+                    slide.appendChild(meta);
+                    slide.appendChild(actions);
+                    feed.appendChild(slide);
+
+                    // 点击视频区域：静音/取消静音
+                    video.addEventListener("click", () => {
+                        globalMuted = !globalMuted;
+                        video.muted = globalMuted;
+                        muteBtn.textContent = globalMuted ? "🔇" : "🔊";
+                        showMuteHint(globalMuted ? "Muted" : "Unmuted");
+                    });
                 });
+
+                setupIntersectionObserver();
+
             } catch (e) {
-                loading.textContent = "Error loading videos: " + e.message;
+                status.textContent = "Error loading videos: " + e.message;
             }
+        }
+
+        function setupIntersectionObserver() {
+            const videos = document.querySelectorAll(".video-slide video");
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    const video = entry.target;
+                    if (entry.isIntersecting) {
+                        // 暂停其他所有
+                        videos.forEach(v => {
+                            if (v !== video) {
+                                v.pause();
+                                v.currentTime = 0;
+                            }
+                        });
+                        // 播放当前
+                        video.muted = globalMuted;
+                        video.play().catch(() => {});
+                        currentPlayingVideo = video;
+
+                        // 同步静音按钮状态
+                        const btn = video.parentElement.querySelector(".action-btn");
+                        if (btn) btn.textContent = globalMuted ? "🔇" : "🔊";
+                    } else {
+                        video.pause();
+                    }
+                });
+            }, {
+                threshold: 0.6 // 视频 60% 可见时才播放
+            });
+
+            videos.forEach(v => observer.observe(v));
+        }
+
+        let hintTimer = null;
+        function showMuteHint(text) {
+            const hint = document.getElementById("muteHint");
+            hint.textContent = text;
+            hint.classList.add("show");
+            if (hintTimer) clearTimeout(hintTimer);
+            hintTimer = setTimeout(() => {
+                hint.classList.remove("show");
+            }, 1200);
         }
 
         loadVideos();
