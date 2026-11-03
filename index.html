@@ -14,19 +14,20 @@
             overflow: hidden;
         }
 
-        /* 顶部品牌栏 */
+        /* 顶部实心栏 */
         .topbar {
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
-            height: 50px;
+            height: 56px;
             display: flex;
             align-items: center;
-            justify-content: center;
+            justify-content: space-between;
+            padding: 0 16px;
             z-index: 100;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent);
-            pointer-events: none;
+            background: #0f0f13;
+            border-bottom: 1px solid #2a2a35;
         }
         .topbar h1 {
             font-size: 20px;
@@ -34,6 +35,19 @@
             color: #4ea8de;
             font-weight: 700;
         }
+        .readme-btn {
+            background: #4ea8de;
+            color: #0f0f13;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+        .readme-btn:hover { background: #7ec8e3; }
 
         /* 滑动容器 */
         .feed {
@@ -42,12 +56,13 @@
             scroll-snap-type: y mandatory;
             scrollbar-width: none;
             -ms-overflow-style: none;
+            padding-top: 56px; /* 给顶部栏留空间 */
         }
         .feed::-webkit-scrollbar { display: none; }
 
         /* 单个视频卡片 */
         .video-slide {
-            height: 100vh;
+            height: calc(100vh - 56px);
             scroll-snap-align: start;
             position: relative;
             display: flex;
@@ -62,7 +77,7 @@
             background: #000;
         }
 
-        /* 底部文件名（替代标题） */
+        /* 底部文件名 */
         .video-meta {
             position: absolute;
             bottom: 20px;
@@ -122,9 +137,48 @@
         }
         .mute-hint.show { opacity: 1; }
 
+        /* 到底提示 */
+        .end-card {
+            height: calc(100vh - 56px);
+            scroll-snap-align: start;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 40px;
+            background: #0f0f13;
+        }
+        .end-card h2 {
+            font-size: 24px;
+            color: #4ea8de;
+            margin-bottom: 12px;
+            letter-spacing: 1px;
+        }
+        .end-card p {
+            font-size: 14px;
+            color: #888;
+            line-height: 1.6;
+            max-width: 400px;
+        }
+        .end-card .end-btn {
+            margin-top: 24px;
+            background: #4ea8de;
+            color: #0f0f13;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+        .end-card .end-btn:hover { background: #7ec8e3; }
+
         /* Loading / 错误 */
         .status {
-            height: 100vh;
+            height: calc(100vh - 56px);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -139,6 +193,7 @@
 
     <div class="topbar">
         <h1>C0balt</h1>
+        <a class="readme-btn" href="https://github.com/aiden12910-12910/C0balt#readme" target="_blank">README</a>
     </div>
 
     <div class="mute-hint" id="muteHint">Tap to unmute</div>
@@ -152,8 +207,7 @@
         const HF_REPO = "tiktok-videos";
         const HF_API = `https://huggingface.co/api/models/${HF_USER}/${HF_REPO}`;
 
-        let globalMuted = true; // 默认静音
-        let currentPlayingVideo = null;
+        let globalMuted = true;
 
         async function loadVideos() {
             const feed = document.getElementById("feed");
@@ -168,12 +222,15 @@
                     .map(f => f.rfilename)
                     .filter(name => name.toLowerCase().endsWith(".mp4"));
 
+                feed.innerHTML = "";
+
                 if (videos.length === 0) {
-                    status.textContent = "No videos yet.";
+                    const empty = document.createElement("div");
+                    empty.className = "status";
+                    empty.textContent = "No videos yet.";
+                    feed.appendChild(empty);
                     return;
                 }
-
-                feed.innerHTML = ""; // 清掉 loading
 
                 videos.forEach((name, index) => {
                     const slide = document.createElement("div");
@@ -195,7 +252,6 @@
                     const actions = document.createElement("div");
                     actions.className = "side-actions";
 
-                    // 静音/取消静音按钮
                     const muteBtn = document.createElement("button");
                     muteBtn.className = "action-btn";
                     muteBtn.textContent = "🔇";
@@ -215,7 +271,6 @@
                     slide.appendChild(actions);
                     feed.appendChild(slide);
 
-                    // 点击视频区域：静音/取消静音
                     video.addEventListener("click", () => {
                         globalMuted = !globalMuted;
                         video.muted = globalMuted;
@@ -223,6 +278,16 @@
                         showMuteHint(globalMuted ? "Muted" : "Unmuted");
                     });
                 });
+
+                // 到底提示卡片
+                const endCard = document.createElement("div");
+                endCard.className = "end-card";
+                endCard.innerHTML = `
+                    <h2>You're all caught up</h2>
+                    <p>No more videos in this feed. Check back later or view the source on GitHub.</p>
+                    <a class="end-btn" href="https://github.com/aiden12910-12910/C0balt#readme" target="_blank">View README</a>
+                `;
+                feed.appendChild(endCard);
 
                 setupIntersectionObserver();
 
@@ -238,19 +303,14 @@
                 entries.forEach(entry => {
                     const video = entry.target;
                     if (entry.isIntersecting) {
-                        // 暂停其他所有
                         videos.forEach(v => {
                             if (v !== video) {
                                 v.pause();
                                 v.currentTime = 0;
                             }
                         });
-                        // 播放当前
                         video.muted = globalMuted;
                         video.play().catch(() => {});
-                        currentPlayingVideo = video;
-
-                        // 同步静音按钮状态
                         const btn = video.parentElement.querySelector(".action-btn");
                         if (btn) btn.textContent = globalMuted ? "🔇" : "🔊";
                     } else {
@@ -258,7 +318,7 @@
                     }
                 });
             }, {
-                threshold: 0.6 // 视频 60% 可见时才播放
+                threshold: 0.6
             });
 
             videos.forEach(v => observer.observe(v));
