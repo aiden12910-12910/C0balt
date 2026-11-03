@@ -76,7 +76,6 @@
         #loading-spinner {
             display: none;
             height: 100dvh; scroll-snap-align: start;
-            display: none;
             align-items: center; justify-content: center;
             flex-direction: column; gap: 16px;
             color: #888; font-size: 14px;
@@ -135,13 +134,12 @@
         let loading = false;
         let totalLoaded = 0;
         let observer = null;
-        const slideNodes = []; // 记录已渲染的 slide，用于触底判断
+        let spinner = null;            // 关键：用 let，后面 init() 里重新赋值
+        const slideNodes = [];         // 记录已渲染的 slide，用于触底判断
 
         const feed = document.getElementById('feed');
-        const status = document.getElementById('status');
-        const spinner = document.getElementById('loading-spinner');
 
-        // ===== 加载动画控制（你可以以后替换成自己的）=====
+        // ===== 加载动画控制 =====
         function showLoading() {
             if (!spinner) return;
             spinner.classList.add('show');
@@ -240,9 +238,13 @@
                 currentPage += 1;
                 hasMore = data.hasMore;
 
-                // 如果还有更多，把 loading 动画重新放回末尾
+                // 如果还有更多，把 loading 动画重新放回末尾（判空防御）
                 if (hasMore) {
-                    feed.appendChild(spinner);
+                    if (spinner) {
+                        feed.appendChild(spinner);
+                    } else {
+                        console.warn('[load] spinner node missing, skip re-append');
+                    }
                 } else {
                     // 没有更多了，加 end-card
                     const end = document.createElement('div');
@@ -335,8 +337,9 @@
             sp.id = 'loading-spinner';
             sp.innerHTML = '<div class="spinner"></div><div>Loading...</div>';
             feed.appendChild(sp);
-            // 替换全局引用
-            window._spinner = sp;
+
+            // 关键：把全局 spinner 指向新节点，供 loadNextPage 使用
+            spinner = sp;
 
             setupObserver();
             await loadNextPage();
