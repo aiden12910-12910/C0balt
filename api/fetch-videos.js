@@ -1,7 +1,7 @@
 // api/fetch-videos.js
 export const config = {
   runtime: 'nodejs',
-  maxDuration: 60, // Hobby 计划最长 60 秒（Pro 可 300 秒），流式代理够用
+  maxDuration: 60, // Hobby 计划最长 60 秒
 };
 
 const HF_USER = 'aiden12910';
@@ -17,7 +17,7 @@ export default async function handler(req, res) {
   // ========== 1. 分页列视频 ==========
   if (action === 'list') {
     const page = parseInt(req.query.page || '0', 10);
-    const size = Math.min(parseInt(req.query.size || '20', 10), 50); // 单页最多 50，预留网络损耗
+    const size = Math.min(parseInt(req.query.size || '20', 10), 50); // 单页最多 50
 
     try {
       const r = await fetch(HF_API);
