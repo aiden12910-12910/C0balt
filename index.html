@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>C0balt · TikTok Video Grabber</title>
+    <title>C0balt · For You</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body {
@@ -15,179 +15,98 @@
         }
 
         .topbar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 56px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 16px;
-            z-index: 100;
-            background: #0f0f13;
-            border-bottom: 1px solid #2a2a35;
+            position: fixed; top: 0; left: 0; right: 0; height: 56px;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 16px; z-index: 100;
+            background: #0f0f13; border-bottom: 1px solid #2a2a35;
         }
-        .topbar h1 {
-            font-size: 20px;
-            letter-spacing: 3px;
-            color: #4ea8de;
-            font-weight: 700;
-        }
+        .topbar h1 { font-size: 20px; letter-spacing: 3px; color: #4ea8de; font-weight: 700; }
         .readme-btn {
-            background: #4ea8de;
-            color: #0f0f13;
-            border: none;
-            padding: 8px 14px;
-            border-radius: 6px;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            text-decoration: none;
-            transition: background 0.2s;
+            background: #4ea8de; color: #0f0f13; border: none;
+            padding: 8px 14px; border-radius: 6px; font-size: 13px;
+            font-weight: 600; cursor: pointer; text-decoration: none;
         }
-        .readme-btn:hover { background: #7ec8e3; }
 
         .feed {
-            height: 100dvh;
-            overflow-y: scroll;
+            height: 100dvh; overflow-y: scroll;
             scroll-snap-type: y mandatory;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
+            scrollbar-width: none; -ms-overflow-style: none;
         }
         .feed::-webkit-scrollbar { display: none; }
 
         .video-slide {
-            height: 100dvh;
-            scroll-snap-align: start;
-            position: relative;
-            background: #000;
-            padding-top: 56px;
-            box-sizing: border-box;
+            height: 100dvh; scroll-snap-align: start;
+            position: relative; background: #000;
+            padding-top: 56px; box-sizing: border-box;
         }
-
         .video-slide video {
-            width: 100%;
-            height: calc(100dvh - 56px);
-            object-fit: contain;
-            background: #000;
-            display: block;
-            cursor: pointer;
+            width: 100%; height: calc(100dvh - 56px);
+            object-fit: contain; background: #000; display: block; cursor: pointer;
         }
         @media (orientation: portrait) {
-            .video-slide video {
-                object-fit: cover;
-            }
+            .video-slide video { object-fit: cover; }
         }
 
         .video-meta {
-            position: absolute;
-            bottom: 20px;
-            left: 16px;
-            right: 80px;
-            z-index: 10;
-            text-shadow: 0 1px 4px rgba(0,0,0,0.8);
-            font-size: 13px;
-            color: #fff;
-            word-break: break-all;
-            pointer-events: none;
+            position: absolute; bottom: 20px; left: 16px; right: 80px;
+            z-index: 10; text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+            font-size: 13px; color: #fff; word-break: break-all; pointer-events: none;
         }
 
         .side-actions {
-            position: absolute;
-            right: 12px;
-            bottom: 80px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            align-items: center;
-            z-index: 10;
+            position: absolute; right: 12px; bottom: 80px;
+            display: flex; flex-direction: column; gap: 20px;
+            align-items: center; z-index: 10;
         }
         .action-btn {
-            background: rgba(255,255,255,0.15);
-            border: none;
-            color: #fff;
-            width: 46px;
-            height: 46px;
-            border-radius: 50%;
-            font-size: 20px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            backdrop-filter: blur(4px);
-            transition: background 0.2s;
+            background: rgba(255,255,255,0.15); border: none; color: #fff;
+            width: 46px; height: 46px; border-radius: 50%; font-size: 20px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
         }
-        .action-btn:hover { background: rgba(255,255,255,0.3); }
 
         .mute-hint {
-            position: absolute;
-            top: 70px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0,0,0,0.6);
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 12px;
-            color: #fff;
-            z-index: 50;
-            opacity: 0;
-            transition: opacity 0.4s;
-            pointer-events: none;
+            position: absolute; top: 70px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.6); padding: 6px 14px; border-radius: 20px;
+            font-size: 12px; color: #fff; z-index: 50; opacity: 0;
+            transition: opacity 0.4s; pointer-events: none;
         }
         .mute-hint.show { opacity: 1; }
 
-        .end-card {
-            height: 100dvh;
-            scroll-snap-align: start;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            padding: 40px;
-            padding-top: 96px;
+        /* 加载动画（预留：你以后替换成自己的） */
+        #loading-spinner {
+            display: none;
+            height: 100dvh; scroll-snap-align: start;
+            display: none;
+            align-items: center; justify-content: center;
+            flex-direction: column; gap: 16px;
+            color: #888; font-size: 14px;
             background: #0f0f13;
-            box-sizing: border-box;
         }
-        .end-card h2 {
-            font-size: 24px;
-            color: #4ea8de;
-            margin-bottom: 12px;
-            letter-spacing: 1px;
+        #loading-spinner.show {
+            display: flex;
         }
-        .end-card p {
-            font-size: 14px;
-            color: #888;
-            line-height: 1.6;
-            max-width: 400px;
+        #loading-spinner .spinner {
+            width: 36px; height: 36px;
+            border: 3px solid #2a2a35;
+            border-top-color: #4ea8de;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
         }
-        .end-card .end-btn {
-            margin-top: 24px;
-            background: #4ea8de;
-            color: #0f0f13;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            text-decoration: none;
-            transition: background 0.2s;
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .end-card {
+            height: 100dvh; scroll-snap-align: start;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; padding: 40px; padding-top: 96px;
+            background: #0f0f13; box-sizing: border-box;
         }
-        .end-card .end-btn:hover { background: #7ec8e3; }
+        .end-card h2 { font-size: 24px; color: #4ea8de; margin-bottom: 12px; }
+        .end-card p { font-size: 14px; color: #888; line-height: 1.6; max-width: 400px; }
 
         .status {
-            height: 100dvh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #888;
-            font-size: 14px;
-            text-align: center;
-            padding: 20px;
-            padding-top: 76px;
-            box-sizing: border-box;
+            height: 100dvh; display: flex; align-items: center; justify-content: center;
+            color: #888; font-size: 14px; text-align: center;
+            padding: 20px; padding-top: 76px; box-sizing: border-box;
         }
     </style>
 </head>
@@ -205,165 +124,225 @@
     </div>
 
     <script>
-        const HF_USER = "aiden12910";
-        const HF_REPO = "tiktok-videos";
-        const HF_API = `https://huggingface.co/api/models/${HF_USER}/${HF_REPO}`;
+        // ===== 配置 =====
+        const PAGE_SIZE = 20;          // 每页 20 个，预留网络损耗，可改小
+        const PREFETCH_THRESHOLD = 10; // 剩 10 条时预取下一页
 
+        // ===== 状态 =====
         let globalMuted = true;
+        let currentPage = 0;
+        let hasMore = true;
+        let loading = false;
+        let totalLoaded = 0;
+        let observer = null;
+        const slideNodes = []; // 记录已渲染的 slide，用于触底判断
 
-        async function loadVideos() {
-            const feed = document.getElementById("feed");
-            const status = document.getElementById("status");
+        const feed = document.getElementById('feed');
+        const status = document.getElementById('status');
+        const spinner = document.getElementById('loading-spinner');
+
+        // ===== 加载动画控制（你可以以后替换成自己的）=====
+        function showLoading() {
+            if (!spinner) return;
+            spinner.classList.add('show');
+            console.log('[load] spinner ON');
+        }
+        function hideLoading() {
+            if (!spinner) return;
+            spinner.classList.remove('show');
+            console.log('[load] spinner OFF');
+        }
+
+        // ===== 请求一页视频 =====
+        async function fetchPage(page) {
+            const url = `/api/fetch-videos?action=list&page=${page}&size=${PAGE_SIZE}`;
+            console.log('[load] fetching page', page, url);
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const data = await res.json();
+            console.log('[load] page', page, 'returned', data.videos.length, 'hasMore', data.hasMore, 'total', data.total);
+            return data;
+        }
+
+        // ===== 渲染一个视频 slide =====
+        function renderSlide(video) {
+            const slide = document.createElement('div');
+            slide.className = 'video-slide';
+            slide.dataset.name = video.name;
+
+            const vid = document.createElement('video');
+            vid.src = video.url;
+            vid.loop = true;
+            vid.playsInline = true;
+            vid.muted = true;
+            vid.preload = 'metadata';
+            vid.setAttribute('webkit-playsinline', '');
+
+            const meta = document.createElement('div');
+            meta.className = 'video-meta';
+            meta.textContent = video.name;
+
+            const actions = document.createElement('div');
+            actions.className = 'side-actions';
+
+            const muteBtn = document.createElement('button');
+            muteBtn.className = 'action-btn';
+            muteBtn.textContent = globalMuted ? '🔇' : '🔊';
+            muteBtn.title = 'Toggle mute';
+            muteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                globalMuted = !globalMuted;
+                vid.muted = globalMuted;
+                muteBtn.textContent = globalMuted ? '🔇' : '🔊';
+                showMuteHint(globalMuted ? 'Muted' : 'Unmuted');
+            });
+
+            actions.appendChild(muteBtn);
+            slide.appendChild(vid);
+            slide.appendChild(meta);
+            slide.appendChild(actions);
+
+            vid.addEventListener('click', () => {
+                if (vid.paused) vid.play().catch(() => {});
+                else vid.pause();
+            });
+
+            return slide;
+        }
+
+        // ===== 加载下一页并追加 =====
+        async function loadNextPage() {
+            if (loading || !hasMore) return;
+            loading = true;
+            showLoading();
 
             try {
-                const res = await fetch(HF_API);
-                if (!res.ok) throw new Error("Failed to fetch repo info");
-                const data = await res.json();
+                const data = await fetchPage(currentPage);
 
-                const videos = (data.siblings || [])
-                    .map(f => f.rfilename)
-                    .filter(name => name.toLowerCase().endsWith(".mp4"));
-
-                feed.innerHTML = "";
-
-                if (videos.length === 0) {
-                    const empty = document.createElement("div");
-                    empty.className = "status";
-                    empty.textContent = "No videos yet.";
-                    feed.appendChild(empty);
+                if (data.videos.length === 0) {
+                    hasMore = false;
+                    console.log('[load] no more videos');
+                    hideLoading();
                     return;
                 }
 
-                videos.forEach((name, index) => {
-                    const slide = document.createElement("div");
-                    slide.className = "video-slide";
-                    slide.dataset.index = index;
+                // 把 loading 动画从 DOM 里暂时移除（如果它在 feed 末尾）
+                if (spinner && spinner.parentNode) spinner.parentNode.removeChild(spinner);
 
-                    const video = document.createElement("video");
-                    video.src = `https://huggingface.co/${HF_USER}/${HF_REPO}/resolve/main/${encodeURIComponent(name)}`;
-                    video.loop = true;
-                    video.playsInline = true;
-                    video.muted = true;
-                    video.preload = "metadata";
-                    video.setAttribute("webkit-playsinline", "");
-
-                    const meta = document.createElement("div");
-                    meta.className = "video-meta";
-                    meta.textContent = name;
-
-                    const actions = document.createElement("div");
-                    actions.className = "side-actions";
-
-                    const muteBtn = document.createElement("button");
-                    muteBtn.className = "action-btn";
-                    muteBtn.textContent = "🔇";
-                    muteBtn.title = "Toggle mute";
-                    muteBtn.addEventListener("click", (e) => {
-                        e.stopPropagation();
-                        globalMuted = !globalMuted;
-                        video.muted = globalMuted;
-                        muteBtn.textContent = globalMuted ? "🔇" : "🔊";
-                        showMuteHint(globalMuted ? "Muted" : "Unmuted");
-                    });
-
-                    actions.appendChild(muteBtn);
-
-                    slide.appendChild(video);
-                    slide.appendChild(meta);
-                    slide.appendChild(actions);
+                data.videos.forEach(v => {
+                    const slide = renderSlide(v);
                     feed.appendChild(slide);
-
-                    // 点击 = 播放/暂停（不切静音）
-                    video.addEventListener("click", () => {
-                        if (video.paused) {
-                            video.play().catch(() => {});
-                        } else {
-                            video.pause();
-                        }
-                    });
+                    slideNodes.push(slide);
+                    observer.observe(slide);
                 });
 
-                // 到底提示卡片
-                const endCard = document.createElement("div");
-                endCard.className = "end-card";
-                endCard.innerHTML = `
-                    <h2>You're all caught up</h2>
-                    <p>No more videos in this feed. Check back later or view the source on GitHub.</p>
-                    <a class="end-btn" href="https://github.com/aiden12910-12910/C0balt#readme" target="_blank">View README</a>
-                `;
-                feed.appendChild(endCard);
+                totalLoaded += data.videos.length;
+                currentPage += 1;
+                hasMore = data.hasMore;
 
-                setupIntersectionObserver();
+                // 如果还有更多，把 loading 动画重新放回末尾
+                if (hasMore) {
+                    feed.appendChild(spinner);
+                } else {
+                    // 没有更多了，加 end-card
+                    const end = document.createElement('div');
+                    end.className = 'end-card';
+                    end.innerHTML = `
+                        <h2>You're all caught up</h2>
+                        <p>No more videos in this feed. Check back later or view the source on GitHub.</p>
+                    `;
+                    feed.appendChild(end);
+                    console.log('[load] end card added');
+                }
 
+                console.log('[load] total loaded:', totalLoaded, 'hasMore:', hasMore);
+                hideLoading();
             } catch (e) {
-                status.textContent = "Error loading videos: " + e.message;
+                console.error('[load] failed:', e);
+                hideLoading();
+            } finally {
+                loading = false;
             }
         }
 
-        function setupIntersectionObserver() {
-            const videos = document.querySelectorAll(".video-slide video");
-
-            const observer = new IntersectionObserver((entries) => {
+        // ===== IntersectionObserver：自动播放 + 触底预取 =====
+        function setupObserver() {
+            observer = new IntersectionObserver((entries) => {
                 entries.forEach(entry => {
-                    const video = entry.target;
+                    const slide = entry.target;
+                    const vid = slide.querySelector('video');
+                    if (!vid) return;
+
                     if (entry.isIntersecting) {
-                        videos.forEach(v => {
-                            if (v !== video) {
-                                v.pause();
-                                v.currentTime = 0;
-                            }
+                        // 暂停其他所有
+                        document.querySelectorAll('.video-slide video').forEach(v => {
+                            if (v !== vid) { v.pause(); v.currentTime = 0; }
                         });
-                        video.muted = globalMuted;
-                        video.play().catch(() => {});
-                        const btn = video.parentElement.querySelector(".action-btn");
-                        if (btn) btn.textContent = globalMuted ? "🔇" : "🔊";
+                        vid.muted = globalMuted;
+                        vid.play().catch(() => {});
+
+                        // 触底预取：当前 slide 的索引 >= 总数 - 阈值
+                        const idx = slideNodes.indexOf(slide);
+                        const remain = slideNodes.length - idx;
+                        console.log('[scroll] idx=', idx, 'remain=', remain, 'hasMore=', hasMore, 'loading=', loading);
+                        if (hasMore && !loading && remain <= PREFETCH_THRESHOLD) {
+                            console.log('[prefetch] triggered, remain=', remain);
+                            loadNextPage();
+                        }
                     } else {
-                        video.pause();
+                        vid.pause();
                     }
                 });
-            }, {
-                threshold: 0.6
-            });
-
-            videos.forEach(v => observer.observe(v));
+            }, { threshold: 0.6 });
         }
 
+        // ===== 提示 =====
         let hintTimer = null;
         function showMuteHint(text) {
-            const hint = document.getElementById("muteHint");
+            const hint = document.getElementById('muteHint');
             hint.textContent = text;
-            hint.classList.add("show");
+            hint.classList.add('show');
             if (hintTimer) clearTimeout(hintTimer);
-            hintTimer = setTimeout(() => {
-                hint.classList.remove("show");
-            }, 1200);
+            hintTimer = setTimeout(() => hint.classList.remove('show'), 1200);
         }
 
-        // 方向键跳 10 秒
-        document.addEventListener("keydown", (e) => {
-            const videos = document.querySelectorAll(".video-slide video");
-            let current = null;
-            let maxVisible = 0;
+        // ===== 方向键跳 10 秒 =====
+        document.addEventListener('keydown', (e) => {
+            const videos = document.querySelectorAll('.video-slide video');
+            let current = null, maxVisible = 0;
             videos.forEach(v => {
                 const rect = v.getBoundingClientRect();
                 const visible = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
-                if (visible > maxVisible) {
-                    maxVisible = visible;
-                    current = v;
-                }
+                if (visible > maxVisible) { maxVisible = visible; current = v; }
             });
             if (!current) return;
-
-            if (e.key === "ArrowRight") {
+            if (e.key === 'ArrowRight') {
                 current.currentTime = Math.min(current.currentTime + 10, current.duration || Infinity);
                 e.preventDefault();
-            } else if (e.key === "ArrowLeft") {
+            } else if (e.key === 'ArrowLeft') {
                 current.currentTime = Math.max(current.currentTime - 10, 0);
                 e.preventDefault();
             }
         });
 
-        loadVideos();
+        // ===== 初始化 =====
+        async function init() {
+            // 清空 loading status
+            feed.innerHTML = '';
+
+            // 创建 spinner 节点（预留，你以后换自己的动画）
+            const sp = document.createElement('div');
+            sp.id = 'loading-spinner';
+            sp.innerHTML = '<div class="spinner"></div><div>Loading...</div>';
+            feed.appendChild(sp);
+            // 替换全局引用
+            window._spinner = sp;
+
+            setupObserver();
+            await loadNextPage();
+        }
+
+        init();
     </script>
 </body>
 </html>
