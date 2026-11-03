@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C0balt</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0f0f13;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+        header {
+            text-align: center;
+            padding: 40px 20px 20px;
+            border-bottom: 1px solid #2a2a35;
+        }
+        header h1 {
+            font-size: 42px;
+            letter-spacing: 4px;
+            color: #4ea8de;
+            font-weight: 700;
+        }
+        header p {
+            color: #888;
+            margin-top: 8px;
+            font-size: 14px;
+        }
+        #video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+            padding: 30px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .video-card {
+            background: #1a1a22;
+            border: 1px solid #2a2a35;
+            border-radius: 10px;
+            overflow: hidden;
+            transition: transform 0.2s;
+        }
+        .video-card:hover {
+            transform: translateY(-2px);
+            border-color: #4ea8de;
+        }
+        .video-card video {
+            width: 100%;
+            display: block;
+            background: #000;
+        }
+        .video-card p {
+            padding: 10px 12px;
+            font-size: 12px;
+            color: #888;
+            word-break: break-all;
+        }
+        #loading {
+            text-align: center;
+            padding: 60px;
+            color: #666;
+            grid-column: 1 / -1;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>C0balt</h1>
+        <p>My TikTok Video Collection</p>
+    </header>
+    <main id="video-grid">
+        <p id="loading">Loading videos...</p>
+    </main>
+
+    <script>
+        const HF_USER = "aiden12910";
+        const HF_REPO = "tiktok-videos";
+        const HF_API = `https://huggingface.co/api/models/${HF_USER}/${HF_REPO}`;
+
+        async function loadVideos() {
+            const grid = document.getElementById("video-grid");
+            const loading = document.getElementById("loading");
+            try {
+                const res = await fetch(HF_API);
+                if (!res.ok) throw new Error("Failed to fetch repo info");
+                const data = await res.json();
+
+                const videos = (data.siblings || [])
+                    .map(f => f.rfilename)
+                    .filter(name => name.toLowerCase().endsWith(".mp4"));
+
+                if (videos.length === 0) {
+                    loading.textContent = "No videos yet.";
+                    return;
+                }
+
+                loading.remove();
+                videos.forEach(name => {
+                    const card = document.createElement("div");
+                    card.className = "video-card";
+                    const video = document.createElement("video");
+                    video.controls = true;
+                    video.preload = "metadata";
+                    video.src = `https://huggingface.co/${HF_USER}/${HF_REPO}/resolve/main/${encodeURIComponent(name)}`;
+                    card.appendChild(video);
+                    const title = document.createElement("p");
+                    title.textContent = name;
+                    card.appendChild(title);
+                    grid.appendChild(card);
+                });
+            } catch (e) {
+                loading.textContent = "Error loading videos: " + e.message;
+            }
+        }
+
+        loadVideos();
+    </script>
+</body>
+</html>
