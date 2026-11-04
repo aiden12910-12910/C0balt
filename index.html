@@ -7,63 +7,48 @@
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body {
-            height: 100%;
-            background: #000;
-            color: #fff;
+            height: 100%; background: #000; color: #fff;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             overflow: hidden;
         }
-
         .topbar {
             position: fixed; top: 0; left: 0; right: 0; height: 56px;
             display: flex; align-items: center; justify-content: space-between;
-            padding: 0 16px; z-index: 100;
-            background: #0f0f13; border-bottom: 1px solid #2a2a35;
+            padding: 0 16px; z-index: 100; background: #0f0f13; border-bottom: 1px solid #2a2a35;
         }
         .topbar h1 { font-size: 20px; letter-spacing: 3px; color: #4ea8de; font-weight: 700; }
         .readme-btn {
-            background: #4ea8de; color: #0f0f13; border: none;
-            padding: 8px 14px; border-radius: 6px; font-size: 13px;
-            font-weight: 600; cursor: pointer; text-decoration: none;
+            background: #4ea8de; color: #0f0f13; border: none; padding: 8px 14px;
+            border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none;
         }
-
         .feed {
-            height: 100dvh; overflow-y: scroll;
-            scroll-snap-type: y mandatory;
+            height: 100dvh; overflow-y: scroll; scroll-snap-type: y mandatory;
             scrollbar-width: none; -ms-overflow-style: none;
         }
         .feed::-webkit-scrollbar { display: none; }
-
         .video-slide {
-            height: 100dvh; scroll-snap-align: start;
-            position: relative; background: #000;
-            padding-top: 56px; box-sizing: border-box;
+            height: 100dvh; scroll-snap-align: start; position: relative;
+            background: #000; padding-top: 56px; box-sizing: border-box;
         }
         .video-slide video {
             width: 100%; height: calc(100dvh - 56px);
             object-fit: contain; background: #000; display: block; cursor: pointer;
         }
-        @media (orientation: portrait) {
-            .video-slide video { object-fit: cover; }
-        }
-
+        @media (orientation: portrait) { .video-slide video { object-fit: cover; } }
         .video-meta {
-            position: absolute; bottom: 20px; left: 16px; right: 80px;
-            z-index: 10; text-shadow: 0 1px 4px rgba(0,0,0,0.8);
-            font-size: 13px; color: #fff; word-break: break-all; pointer-events: none;
+            position: absolute; bottom: 20px; left: 16px; right: 80px; z-index: 10;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.8); font-size: 13px; color: #fff;
+            word-break: break-all; pointer-events: none;
         }
-
         .side-actions {
-            position: absolute; right: 12px; bottom: 80px;
-            display: flex; flex-direction: column; gap: 20px;
-            align-items: center; z-index: 10;
+            position: absolute; right: 12px; bottom: 80px; display: flex;
+            flex-direction: column; gap: 20px; align-items: center; z-index: 10;
         }
         .action-btn {
             background: rgba(255,255,255,0.15); border: none; color: #fff;
             width: 46px; height: 46px; border-radius: 50%; font-size: 20px;
             cursor: pointer; display: flex; align-items: center; justify-content: center;
         }
-
         .mute-hint {
             position: absolute; top: 70px; left: 50%; transform: translateX(-50%);
             background: rgba(0,0,0,0.6); padding: 6px 14px; border-radius: 20px;
@@ -71,78 +56,48 @@
             transition: opacity 0.4s; pointer-events: none;
         }
         .mute-hint.show { opacity: 1; }
-
         #loading-spinner {
-            display: none;
-            height: 100dvh; scroll-snap-align: start;
-            align-items: center; justify-content: center;
-            flex-direction: column; gap: 16px;
-            color: #888; font-size: 14px;
-            background: #0f0f13;
+            display: none; height: 100dvh; scroll-snap-align: start;
+            align-items: center; justify-content: center; flex-direction: column; gap: 16px;
+            color: #888; font-size: 14px; background: #0f0f13;
         }
         #loading-spinner.show { display: flex; }
         #loading-spinner .spinner {
-            width: 36px; height: 36px;
-            border: 3px solid #2a2a35;
-            border-top-color: #4ea8de;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
+            width: 36px; height: 36px; border: 3px solid #2a2a35;
+            border-top-color: #4ea8de; border-radius: 50%; animation: spin 0.8s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
-
         .end-card {
-            height: 100dvh; scroll-snap-align: start;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: 100dvh; scroll-snap-align: start; display: flex;
+            flex-direction: column; align-items: center; justify-content: center;
             text-align: center; padding: 40px; padding-top: 96px;
             background: #0f0f13; box-sizing: border-box;
         }
         .end-card h2 { font-size: 24px; color: #4ea8de; margin-bottom: 12px; }
         .end-card p { font-size: 14px; color: #888; line-height: 1.6; max-width: 400px; }
-
         .video-error {
-            position: absolute; inset: 56px 0 0 0;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            gap: 10px; text-align: center; padding: 24px;
-            background: rgba(15,15,19,0.92); z-index: 20;
-            color: #f87171; font-size: 14px; box-sizing: border-box;
+            position: absolute; inset: 56px 0 0 0; display: flex;
+            flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+            text-align: center; padding: 24px; background: rgba(15,15,19,0.92);
+            z-index: 20; color: #f87171; font-size: 14px; box-sizing: border-box;
         }
         .video-error .err-title { font-size: 16px; font-weight: 600; color: #f87171; }
         .video-error .err-name { color: #a1a1aa; word-break: break-all; font-size: 12px; }
         .video-error .err-code { color: #71717a; font-size: 12px; }
         .video-error button {
             margin-top: 8px; background: #4ea8de; color: #0f0f13; border: none;
-            padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600;
-            cursor: pointer;
+            padding: 8px 16px; border-radius: 6px; font-size: 13px;
+            font-weight: 600; cursor: pointer;
         }
-
         .feed-error {
-            height: 100dvh; scroll-snap-align: start;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            gap: 12px; text-align: center; padding: 40px; padding-top: 96px;
-            background: #0f0f13; box-sizing: border-box;
-            color: #f87171; font-size: 14px;
+            height: 100dvh; scroll-snap-align: start; display: flex;
+            flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+            text-align: center; padding: 40px; padding-top: 96px;
+            background: #0f0f13; box-sizing: border-box; color: #f87171; font-size: 14px;
         }
         .feed-error button {
-            background: #4ea8de; color: #0f0f13; border: none;
-            padding: 8px 18px; border-radius: 6px; font-size: 13px; font-weight: 600;
-            cursor: pointer;
-        }
-
-        /* 点击播放覆盖层（Chromebook 用） */
-        .tap-to-play {
-            position: absolute; inset: 56px 0 0 0;
-            display: flex; align-items: center; justify-content: center;
-            background: rgba(0,0,0,0.45); z-index: 15; cursor: pointer;
-            flex-direction: column; gap: 12px;
-        }
-        .tap-to-play .play-icon {
-            width: 64px; height: 64px; border-radius: 50%;
-            background: rgba(78,168,222,0.9);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 28px; color: #0f0f13;
-        }
-        .tap-to-play .play-hint {
-            font-size: 13px; color: #d4d4d8; text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+            background: #4ea8de; color: #0f0f13; border: none; padding: 8px 18px;
+            border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;
         }
     </style>
 </head>
@@ -159,18 +114,13 @@
         <div class="status" id="status">Loading videos...</div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
     <script>
-        // ===== 配置 =====
         const PAGE_SIZE = 20;
         const PREFETCH_THRESHOLD = 10;
         const MAX_VIDEO_RETRIES = 3;
         const RETRY_DELAY_MS = 500;
 
-        // 识别 Chromebook（ChromeOS UA 含 CrOS）
-        const IS_CROS = /CrOS/.test(navigator.userAgent);
-        console.log('[env] Chromebook =', IS_CROS);
-
-        // ===== 状态 =====
         let globalMuted = true;
         let currentPage = 0;
         let hasMore = true;
@@ -183,16 +133,8 @@
 
         const feed = document.getElementById('feed');
 
-        function showLoading() {
-            if (!spinner) return;
-            spinner.classList.add('show');
-            console.log('[load] spinner ON');
-        }
-        function hideLoading() {
-            if (!spinner) return;
-            spinner.classList.remove('show');
-            console.log('[load] spinner OFF');
-        }
+        function showLoading() { if (spinner) { spinner.classList.add('show'); console.log('[load] spinner ON'); } }
+        function hideLoading() { if (spinner) { spinner.classList.remove('show'); console.log('[load] spinner OFF'); } }
 
         async function fetchPage(page) {
             const url = `/api/fetch-videos?action=list&page=${page}&size=${PAGE_SIZE}`;
@@ -218,19 +160,13 @@
             if (slide.querySelector('.video-error')) return;
             const box = document.createElement('div');
             box.className = 'video-error';
-
-            const title = document.createElement('div');
-            title.className = 'err-title';
-            title.textContent = retried ? '视频重试后仍失败' : '视频加载失败';
-
-            const name = document.createElement('div');
-            name.className = 'err-name';
-            name.textContent = video.name;
-
-            const code = document.createElement('div');
-            code.className = 'err-code';
-            code.textContent = videoErrorText(err);
-
+            box.innerHTML = `
+                <div class="err-title">${retried ? '视频重试后仍失败' : '视频加载失败'}</div>
+                <div class="err-name"></div>
+                <div class="err-code"></div>
+            `;
+            box.querySelector('.err-name').textContent = video.name;
+            box.querySelector('.err-code').textContent = videoErrorText(err);
             const btn = document.createElement('button');
             btn.textContent = '重试';
             btn.addEventListener('click', (e) => {
@@ -239,19 +175,46 @@
                 const vid = slide.querySelector('video');
                 if (vid) {
                     slide._retryCount = 0;
-                    const t = vid.currentTime || 0;
-                    vid.load();
-                    vid.currentTime = t;
+                    initHls(slide, vid, video);
                     vid.play().catch(() => {});
                 }
             });
-
-            box.appendChild(title);
-            box.appendChild(name);
-            box.appendChild(code);
             box.appendChild(btn);
             slide.appendChild(box);
             console.warn('[video] error on', video.name, err);
+        }
+
+        function initHls(slide, vid, video) {
+            if (slide._hls) {
+                try { slide._hls.destroy(); } catch (e) {}
+                slide._hls = null;
+            }
+            if (window.Hls && Hls.isSupported()) {
+                const hls = new Hls({
+                    maxBufferLength: 6,
+                    maxMaxBufferLength: 12,
+                    startLevel: -1,
+                    capLevelToPlayerSize: true,
+                    lowLatencyMode: false,
+                });
+                hls.loadSource(video.url);
+                hls.attachMedia(vid);
+                hls.on(Hls.Events.ERROR, (event, data) => {
+                    if (!data.fatal) return;
+                    if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                        hls.startLoad();
+                    } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                        hls.recoverMediaError();
+                    } else {
+                        showVideoError(slide, video, { code: 4 }, slide._retryCount > 0);
+                    }
+                });
+                slide._hls = hls;
+            } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
+                vid.src = video.url;
+            } else {
+                showVideoError(slide, video, { code: 4 }, false);
+            }
         }
 
         function renderSlide(video) {
@@ -261,57 +224,43 @@
             slide._retryCount = 0;
 
             const vid = document.createElement('video');
-            // 加版本参数，绕过旧缓存坏片段
-            const sep = video.url.includes('?') ? '&' : '?';
-            let src = video.url + sep + 'v=' + Date.now();
-            if (IS_CROS) src += '&full=1';
-            vid.src = src;
-            vid.src = video.url + sep + 'v=' + Date.now();
             vid.loop = true;
             vid.playsInline = true;
             vid.muted = true;
-            // Chromebook 上不预加载，等点击后再 load
-            vid.preload = IS_CROS ? 'none' : 'metadata';
+            vid.preload = 'metadata';
             vid.setAttribute('webkit-playsinline', '');
 
             vid.addEventListener('error', () => {
                 const err = vid.error;
                 const code = err ? err.code : 0;
                 const retriable = (code === 2 || code === 3 || code === 4);
-
                 if (retriable && slide._retryCount < MAX_VIDEO_RETRIES) {
                     slide._retryCount++;
-                    const t = vid.currentTime || 0;
-                    console.warn('[video] retry', slide._retryCount, '/', MAX_VIDEO_RETRIES, 'for', video.name, 'at', t);
+                    console.warn('[video] retry', slide._retryCount, '/', MAX_VIDEO_RETRIES, 'for', video.name);
                     setTimeout(() => {
-                        vid.load();
-                        vid.currentTime = t;
+                        initHls(slide, vid, video);
                         vid.play().catch(() => {});
                     }, RETRY_DELAY_MS);
                     return;
                 }
-
                 showVideoError(slide, video, err, slide._retryCount > 0);
             });
 
             vid.addEventListener('playing', () => {
                 const box = slide.querySelector('.video-error');
                 if (box) box.remove();
-                const tap = slide.querySelector('.tap-to-play');
-                if (tap) tap.remove();
             });
 
             const meta = document.createElement('div');
             meta.className = 'video-meta';
-            meta.textContent = video.name;
+            const parts = video.name.split('/');
+            meta.textContent = parts.length >= 2 ? parts[parts.length - 2] : video.name;
 
             const actions = document.createElement('div');
             actions.className = 'side-actions';
-
             const muteBtn = document.createElement('button');
             muteBtn.className = 'action-btn';
             muteBtn.textContent = globalMuted ? '🔇' : '🔊';
-            muteBtn.title = 'Toggle mute';
             muteBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 globalMuted = !globalMuted;
@@ -319,50 +268,26 @@
                 muteBtn.textContent = globalMuted ? '🔇' : '🔊';
                 showMuteHint(globalMuted ? 'Muted' : 'Unmuted');
             });
-
             actions.appendChild(muteBtn);
+
             slide.appendChild(vid);
             slide.appendChild(meta);
             slide.appendChild(actions);
 
-            // Chromebook：点击播放覆盖层
-            if (IS_CROS) {
-                const tap = document.createElement('div');
-                tap.className = 'tap-to-play';
-                tap.innerHTML = `
-                    <div class="play-icon">▶</div>
-                    <div class="play-hint">点按播放</div>
-                `;
-                tap.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    tap.remove();
-                    vid.muted = globalMuted;
-                    vid.load();
-                    vid.play().catch((err) => {
-                        console.warn('[video] tap play failed:', err);
-                    });
-                });
-                slide.appendChild(tap);
-            }
-
             vid.addEventListener('click', () => {
-                if (IS_CROS && vid.readyState === 0) return; // 还没加载过，交给覆盖层
                 if (vid.paused) vid.play().catch(() => {});
                 else vid.pause();
             });
 
+            initHls(slide, vid, video);
             return slide;
         }
 
         function showEmptyCard() {
             const end = document.createElement('div');
             end.className = 'end-card';
-            end.innerHTML = `
-                <h2>暂无视频</h2>
-                <p>Hugging Face 仓库里还没有可播放的 MP4。上传后刷新页面即可。</p>
-            `;
+            end.innerHTML = `<h2>暂无视频</h2><p>Hugging Face 仓库里还没有可播放的 HLS。上传后刷新页面即可。</p>`;
             feed.appendChild(end);
-            console.log('[load] empty card added');
         }
 
         function showFeedError(message, retryFn) {
@@ -374,13 +299,8 @@
             m.textContent = message || '';
             const btn = document.createElement('button');
             btn.textContent = '重试';
-            btn.addEventListener('click', () => {
-                box.remove();
-                retryFn();
-            });
-            box.appendChild(t);
-            box.appendChild(m);
-            box.appendChild(btn);
+            btn.addEventListener('click', () => { box.remove(); retryFn(); });
+            box.appendChild(t); box.appendChild(m); box.appendChild(btn);
             feed.appendChild(box);
         }
 
@@ -391,10 +311,7 @@
 
             try {
                 const data = await fetchPage(currentPage);
-
-                if (totalAvailable === null && typeof data.total === 'number') {
-                    totalAvailable = data.total;
-                }
+                if (totalAvailable === null && typeof data.total === 'number') totalAvailable = data.total;
 
                 if (data.videos.length === 0) {
                     hasMore = false;
@@ -404,13 +321,9 @@
                     } else {
                         const end = document.createElement('div');
                         end.className = 'end-card';
-                        end.innerHTML = `
-                            <h2>You're all caught up</h2>
-                            <p>No more videos in this feed. Check back later or view the source on GitHub.</p>
-                        `;
+                        end.innerHTML = `<h2>You're all caught up</h2><p>No more videos in this feed.</p>`;
                         feed.appendChild(end);
                     }
-                    console.log('[load] no more videos');
                     hideLoading();
                     return;
                 }
@@ -422,7 +335,7 @@
                     const j = Math.floor(Math.random() * (i + 1));
                     [pageVideos[i], pageVideos[j]] = [pageVideos[j], pageVideos[i]];
                 }
-                console.log('[load] page', currentPage, 'shuffled order:', pageVideos.map(v => v.name).join(', '));
+                console.log('[load] page', currentPage, 'shuffled:', pageVideos.map(v => v.name).join(', '));
 
                 pageVideos.forEach(v => {
                     const slide = renderSlide(v);
@@ -436,23 +349,13 @@
                 hasMore = data.hasMore;
 
                 if (hasMore) {
-                    if (spinner) {
-                        feed.appendChild(spinner);
-                    } else {
-                        console.warn('[load] spinner node missing, skip re-append');
-                    }
+                    if (spinner) feed.appendChild(spinner);
                 } else {
                     const end = document.createElement('div');
                     end.className = 'end-card';
-                    end.innerHTML = `
-                        <h2>You're all caught up</h2>
-                        <p>No more videos in this feed. Check back later or view the source on GitHub.</p>
-                    `;
+                    end.innerHTML = `<h2>You're all caught up</h2><p>No more videos in this feed.</p>`;
                     feed.appendChild(end);
-                    console.log('[load] end card added');
                 }
-
-                console.log('[load] total loaded:', totalLoaded, 'hasMore:', hasMore);
                 hideLoading();
             } catch (e) {
                 console.error('[load] failed:', e);
@@ -460,12 +363,10 @@
                 if (spinner && spinner.parentNode) spinner.parentNode.removeChild(spinner);
                 if (totalLoaded === 0) {
                     showFeedError(e.message || String(e), () => {
-                        hasMore = true;
-                        loading = false;
-                        loadNextPage();
+                        hasMore = true; loading = false; loadNextPage();
                     });
-                } else {
-                    if (spinner && spinner.parentNode !== feed) feed.appendChild(spinner);
+                } else if (spinner && spinner.parentNode !== feed) {
+                    feed.appendChild(spinner);
                 }
             } finally {
                 loading = false;
@@ -478,30 +379,15 @@
                     const slide = entry.target;
                     const vid = slide.querySelector('video');
                     if (!vid) return;
-
                     if (entry.isIntersecting) {
                         document.querySelectorAll('.video-slide video').forEach(v => {
-                            if (v !== vid) { v.pause(); v.currentTime = 0; }
+                            if (v !== vid) { v.pause(); }
                         });
-
-                        // Chromebook 上不自动播，等用户点覆盖层
-                        if (IS_CROS) {
-                            const tap = slide.querySelector('.tap-to-play');
-                            if (!tap) {
-                                // 已经点过播放的，继续播
-                                vid.muted = globalMuted;
-                                vid.play().catch(() => {});
-                            }
-                        } else {
-                            vid.muted = globalMuted;
-                            vid.play().catch(() => {});
-                        }
-
+                        vid.muted = globalMuted;
+                        vid.play().catch(() => {});
                         const idx = slideNodes.indexOf(slide);
                         const remain = slideNodes.length - idx;
-                        console.log('[scroll] idx=', idx, 'remain=', remain, 'hasMore=', hasMore, 'loading=', loading);
                         if (hasMore && !loading && remain <= PREFETCH_THRESHOLD) {
-                            console.log('[prefetch] triggered, remain=', remain);
                             loadNextPage();
                         }
                     } else {
@@ -529,24 +415,17 @@
                 if (visible > maxVisible) { maxVisible = visible; current = v; }
             });
             if (!current) return;
-            if (e.key === 'ArrowRight') {
-                current.currentTime = Math.min(current.currentTime + 10, current.duration || Infinity);
-                e.preventDefault();
-            } else if (e.key === 'ArrowLeft') {
-                current.currentTime = Math.max(current.currentTime - 10, 0);
-                e.preventDefault();
-            }
+            if (e.key === 'ArrowRight') { current.currentTime = Math.min(current.currentTime + 10, current.duration || Infinity); e.preventDefault(); }
+            else if (e.key === 'ArrowLeft') { current.currentTime = Math.max(current.currentTime - 10, 0); e.preventDefault(); }
         });
 
         async function init() {
             feed.innerHTML = '';
-
             const sp = document.createElement('div');
             sp.id = 'loading-spinner';
             sp.innerHTML = '<div class="spinner"></div><div>Loading...</div>';
             feed.appendChild(sp);
             spinner = sp;
-
             setupObserver();
             await loadNextPage();
         }
