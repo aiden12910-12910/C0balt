@@ -72,7 +72,6 @@
         }
         .mute-hint.show { opacity: 1; }
 
-        /* 加载动画（预留：你以后替换成自己的） */
         #loading-spinner {
             display: none;
             height: 100dvh; scroll-snap-align: start;
@@ -81,9 +80,7 @@
             color: #888; font-size: 14px;
             background: #0f0f13;
         }
-        #loading-spinner.show {
-            display: flex;
-        }
+        #loading-spinner.show { display: flex; }
         #loading-spinner .spinner {
             width: 36px; height: 36px;
             border: 3px solid #2a2a35;
@@ -106,6 +103,37 @@
             height: 100dvh; display: flex; align-items: center; justify-content: center;
             color: #888; font-size: 14px; text-align: center;
             padding: 20px; padding-top: 76px; box-sizing: border-box;
+        }
+
+        /* 视频错误覆盖层 */
+        .video-error {
+            position: absolute; inset: 56px 0 0 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 10px; text-align: center; padding: 24px;
+            background: rgba(15,15,19,0.92); z-index: 20;
+            color: #f87171; font-size: 14px; box-sizing: border-box;
+        }
+        .video-error .err-title { font-size: 16px; font-weight: 600; color: #f87171; }
+        .video-error .err-name { color: #a1a1aa; word-break: break-all; font-size: 12px; }
+        .video-error .err-code { color: #71717a; font-size: 12px; }
+        .video-error button {
+            margin-top: 8px; background: #4ea8de; color: #0f0f13; border: none;
+            padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* 列表加载失败提示 */
+        .feed-error {
+            height: 100dvh; scroll-snap-align: start;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 12px; text-align: center; padding: 40px; padding-top: 96px;
+            background: #0f0f13; box-sizing: border-box;
+            color: #f87171; font-size: 14px;
+        }
+        .feed-error button {
+            background: #4ea8de; color: #0f0f13; border: none;
+            padding: 8px 18px; border-radius: 6px; font-size: 13px; font-weight: 600;
+            cursor: pointer;
         }
     </style>
 </head>
@@ -135,11 +163,11 @@
         let totalLoaded = 0;
         let observer = null;
         let spinner = null;
+        let totalAvailable = null; // 首次 list 返回的 total
         const slideNodes = [];
 
         const feed = document.getElementById('feed');
 
-        // ===== 加载动画控制 =====
         function showLoading() {
             if (!spinner) return;
             spinner.classList.add('show');
@@ -151,7 +179,6 @@
             console.log('[load] spinner OFF');
         }
 
-        // ===== 请求一页视频 =====
         async function fetchPage(page) {
             const url = `/api/fetch-videos?action=list&page=${page}&size=${PAGE_SIZE}`;
             console.log('[load] fetching page', page, url);
@@ -162,7 +189,55 @@
             return data;
         }
 
-        // ===== 渲染一个视频 slide =====
+        // ===== 视频错误码可读化 =====
+        function videoErrorText(err) {
+            if (!err) return '未知错误';
+            const code = err.code;
+            if (code === 1) return '加载被中止 (MEDIA_ERR_ABORTED)';
+            if (code === 2) return '网络错误 (MEDIA_ERR_NETWORK)';
+            if (code === 3) return '解码失败 (MEDIA_ERR_DECODE)';
+            if (code === 4) return '格式不支持或文件不存在 (MEDIA_ERR_SRC_NOT_SUPPORTED)';
+            return '错误码 ' + code;
+        }
+
+        // ===== 在 slide 上显示视频错误覆盖层 =====
+        function showVideoError(slide, video, err) {
+            if (slide.querySelector('.video-error')) return;
+            const box = document.createElement('div');
+            box.className = 'video-error';
+
+            const title = document.createElement('div');
+            title.className = 'err-title';
+            title.textContent = '视频加载失败';
+
+            const name = document.createElement('div');
+            name.className = 'err-name';
+            name.textContent = video.name;
+
+            const code = document.createElement('div');
+            code.className = 'err-code';
+            code.textContent = videoErrorText(err);
+
+            const btn = document.createElement('button');
+            btn.textContent = '重试';
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                box.remove();
+                const vid = slide.querySelector('video');
+                if (vid) {
+                    vid.load();
+                    vid.play().catch(() => {});
+                }
+            });
+
+            box.appendChild(title);
+            box.appendChild(name);
+            box.appendChild(code);
+            box.appendChild(btn);
+            slide.appendChild(box);
+            console.warn('[video] error on', video.name, err);
+        }
+
         function renderSlide(video) {
             const slide = document.createElement('div');
             slide.className = 'video-slide';
@@ -175,6 +250,16 @@
             vid.muted = true;
             vid.preload = 'metadata';
             vid.setAttribute('webkit-playsinline', '');
+
+            // 错误处理：网络、解码、格式不支持
+            vid.addEventListener('error', () => {
+                showVideoError(slide, video, vid.error);
+            });
+            // 播放失败（比如浏览器策略）不覆盖 UI，只在 console 提示
+            vid.addEventListener('play', () => {
+                const box = slide.querySelector('.video-error');
+                if (box) box.remove();
+            });
 
             const meta = document.createElement('div');
             meta.className = 'video-meta';
@@ -208,7 +293,38 @@
             return slide;
         }
 
-        // ===== 加载下一页并追加（每页渲染前随机洗牌）=====
+        // ===== 空列表 / 列表错误提示 =====
+        function showEmptyCard() {
+            const end = document.createElement('div');
+            end.className = 'end-card';
+            end.innerHTML = `
+                <h2>暂无视频</h2>
+                <p>Hugging Face 仓库里还没有可播放的 MP4。上传后刷新页面即可。</p>
+            `;
+            feed.appendChild(end);
+            console.log('[load] empty card added');
+        }
+
+        function showFeedError(message, retryFn) {
+            const box = document.createElement('div');
+            box.className = 'feed-error';
+            const t = document.createElement('div');
+            t.textContent = '加载视频列表失败';
+            const m = document.createElement('div');
+            m.textContent = message || '';
+            const btn = document.createElement('button');
+            btn.textContent = '重试';
+            btn.addEventListener('click', () => {
+                box.remove();
+                retryFn();
+            });
+            box.appendChild(t);
+            box.appendChild(m);
+            box.appendChild(btn);
+            feed.appendChild(box);
+        }
+
+        // ===== 加载下一页 =====
         async function loadNextPage() {
             if (loading || !hasMore) return;
             loading = true;
@@ -217,8 +333,25 @@
             try {
                 const data = await fetchPage(currentPage);
 
+                if (totalAvailable === null && typeof data.total === 'number') {
+                    totalAvailable = data.total;
+                }
+
+                // 第一页就没有视频 → 显示“暂无视频”，不显示 end card
                 if (data.videos.length === 0) {
                     hasMore = false;
+                    if (spinner && spinner.parentNode) spinner.parentNode.removeChild(spinner);
+                    if (totalAvailable === 0 || totalLoaded === 0) {
+                        showEmptyCard();
+                    } else {
+                        const end = document.createElement('div');
+                        end.className = 'end-card';
+                        end.innerHTML = `
+                            <h2>You're all caught up</h2>
+                            <p>No more videos in this feed. Check back later or view the source on GitHub.</p>
+                        `;
+                        feed.appendChild(end);
+                    }
                     console.log('[load] no more videos');
                     hideLoading();
                     return;
@@ -226,7 +359,6 @@
 
                 if (spinner && spinner.parentNode) spinner.parentNode.removeChild(spinner);
 
-                // 每页到货后、渲染前，随机打乱本页顺序
                 const pageVideos = data.videos.slice();
                 for (let i = pageVideos.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));
@@ -252,6 +384,7 @@
                         console.warn('[load] spinner node missing, skip re-append');
                     }
                 } else {
+                    // 还有内容但到底了 → end card
                     const end = document.createElement('div');
                     end.className = 'end-card';
                     end.innerHTML = `
@@ -267,12 +400,23 @@
             } catch (e) {
                 console.error('[load] failed:', e);
                 hideLoading();
+                if (spinner && spinner.parentNode) spinner.parentNode.removeChild(spinner);
+                // 列表请求失败：显示错误 + 重试，不把 loading 状态卡死
+                if (totalLoaded === 0) {
+                    showFeedError(e.message || String(e), () => {
+                        hasMore = true;
+                        loading = false;
+                        loadNextPage();
+                    });
+                } else {
+                    // 非第一页失败：保留已有内容，spinner 放回去，等下次滚动重试
+                    if (spinner && spinner.parentNode !== feed) feed.appendChild(spinner);
+                }
             } finally {
                 loading = false;
             }
         }
 
-        // ===== IntersectionObserver：自动播放 + 触底预取 =====
         function setupObserver() {
             observer = new IntersectionObserver((entries) => {
                 entries.forEach(entry => {
@@ -301,7 +445,6 @@
             }, { threshold: 0.6 });
         }
 
-        // ===== 提示 =====
         let hintTimer = null;
         function showMuteHint(text) {
             const hint = document.getElementById('muteHint');
@@ -311,7 +454,6 @@
             hintTimer = setTimeout(() => hint.classList.remove('show'), 1200);
         }
 
-        // ===== 方向键跳 10 秒 =====
         document.addEventListener('keydown', (e) => {
             const videos = document.querySelectorAll('.video-slide video');
             let current = null, maxVisible = 0;
@@ -330,7 +472,6 @@
             }
         });
 
-        // ===== 初始化 =====
         async function init() {
             feed.innerHTML = '';
 
@@ -338,7 +479,6 @@
             sp.id = 'loading-spinner';
             sp.innerHTML = '<div class="spinner"></div><div>Loading...</div>';
             feed.appendChild(sp);
-
             spinner = sp;
 
             setupObserver();
