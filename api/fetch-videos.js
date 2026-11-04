@@ -61,54 +61,52 @@ export default async function handler(req, res) {
   }
 
   // ========== 2. 流式代理视频 ==========
-if (action === 'stream') {
-  const name = req.query.name;
-  if (!name) return res.status(400).send('Missing name');
+  if (action === 'stream') {
+    const name = req.query.name;
+    if (!name) return res.status(400).send('Missing name');
 
-  // 前端带 full=1 时，强制完整 GET，不透传 Range
-  const forceFull = req.query.full === '1';
+    const forceFull = req.query.full === '1';
 
-  const encodedPath = name.split('/').map(encodeURIComponent).join('/');
-  const hfUrl = HF_BASE + encodedPath;
+    const encodedPath = name.split('/').map(encodeURIComponent).join('/');
+    const hfUrl = HF_BASE + encodedPath;
 
-  const headers = { Accept: '*/*' };
-  if (!forceFull && req.headers.range) headers.Range = req.headers.range;
+    const headers = { Accept: '*/*' };
+    if (!forceFull && req.headers.range) headers.Range = req.headers.range;
 
-  try {
-    const hfRes = await fetch(hfUrl, { headers });
-    if (!hfRes.ok && hfRes.status !== 206) {
-      return res.status(hfRes.status).send(`HF ${hfRes.status}`);
+    try {
+      const hfRes = await fetch(hfUrl, { headers });
+      if (!hfRes.ok && hfRes.status !== 206) {
+        return res.status(hfRes.status).send(`HF ${hfRes.status}`);
+      }
+
+      res.status(hfRes.status);
+      res.setHeader('Content-Type', hfRes.headers.get('content-type') || 'video/mp4');
+
+      const cr = hfRes.headers.get('content-range');
+      if (cr) res.setHeader('Content-Range', cr);
+      const ar = hfRes.headers.get('accept-ranges');
+      if (ar) res.setHeader('Accept-Ranges', ar);
+      const cl = hfRes.headers.get('content-length');
+      if (cl) res.setHeader('Content-Length', cl);
+
+      res.setHeader('Cache-Control', 'no-store');
+
+      console.log(`[stream] ${name} full=${forceFull} status=${hfRes.status} range=${headers.Range || 'full'} len=${cl || 'none'}`);
+
+      if (!hfRes.body) { res.end(); return; }
+
+      const nodeStream = Readable.fromWeb(hfRes.body);
+      nodeStream.on('error', () => {
+        if (!res.writableEnded) res.end();
+      });
+      res.on('close', () => {
+        if (!nodeStream.destroyed) nodeStream.destroy();
+      });
+      nodeStream.pipe(res);
+    } catch (e) {
+      if (!res.writableEnded) res.status(500).send('Stream error');
     }
-
-    res.status(hfRes.status);
-    res.setHeader('Content-Type', hfRes.headers.get('content-type') || 'video/mp4');
-
-    const cr = hfRes.headers.get('content-range');
-    if (cr) res.setHeader('Content-Range', cr);
-    const ar = hfRes.headers.get('accept-ranges');
-    if (ar) res.setHeader('Accept-Ranges', ar);
-    const cl = hfRes.headers.get('content-length');
-    if (cl) res.setHeader('Content-Length', cl);
-
-    res.setHeader('Cache-Control', 'no-store');
-
-    console.log(`[stream] ${name} full=${forceFull} status=${hfRes.status} range=${headers.Range || 'full'} len=${cl || 'none'}`);
-
-    if (!hfRes.body) { res.end(); return; }
-
-    const nodeStream = Readable.fromWeb(hfRes.body);
-    nodeStream.on('error', (err) => {
-      if (!res.writableEnded) res.end();
-    });
-    res.on('close', () => {
-      if (!nodeStream.destroyed) nodeStream.destroy();
-    });
-    nodeStream.pipe(res);
-  } catch (e) {
-    if (!res.writableEnded) res.status(500).send('Stream error');
-  }
-  return;
-}
+    return;
   }
 
   return res.status(400).json({ error: 'Unknown action' });
