@@ -263,6 +263,9 @@
             const vid = document.createElement('video');
             // 加版本参数，绕过旧缓存坏片段
             const sep = video.url.includes('?') ? '&' : '?';
+            let src = video.url + sep + 'v=' + Date.now();
+            if (IS_CROS) src += '&full=1';
+            vid.src = src;
             vid.src = video.url + sep + 'v=' + Date.now();
             vid.loop = true;
             vid.playsInline = true;
