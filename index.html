@@ -99,12 +99,6 @@
         .end-card h2 { font-size: 24px; color: #4ea8de; margin-bottom: 12px; }
         .end-card p { font-size: 14px; color: #888; line-height: 1.6; max-width: 400px; }
 
-        .status {
-            height: 100dvh; display: flex; align-items: center; justify-content: center;
-            color: #888; font-size: 14px; text-align: center;
-            padding: 20px; padding-top: 76px; box-sizing: border-box;
-        }
-
         .video-error {
             position: absolute; inset: 56px 0 0 0;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -152,8 +146,8 @@
         // ===== 配置 =====
         const PAGE_SIZE = 20;
         const PREFETCH_THRESHOLD = 10;
-        const MAX_VIDEO_RETRIES = 3;   // 单个视频最多自动重试次数
-        const RETRY_DELAY_MS = 500;    // 重试前等待时间
+        const MAX_VIDEO_RETRIES = 3;
+        const RETRY_DELAY_MS = 500;
 
         // ===== 状态 =====
         let globalMuted = true;
@@ -182,7 +176,7 @@
         async function fetchPage(page) {
             const url = `/api/fetch-videos?action=list&page=${page}&size=${PAGE_SIZE}`;
             console.log('[load] fetching page', page, url);
-            const res = await fetch(url);
+            const res = await fetch(url, { cache: 'no-store' });
             if (!res.ok) throw new Error('HTTP ' + res.status);
             const data = await res.json();
             console.log('[load] page', page, 'returned', data.videos.length, 'hasMore', data.hasMore, 'total', data.total);
@@ -253,7 +247,7 @@
             vid.preload = 'metadata';
             vid.setAttribute('webkit-playsinline', '');
 
-            // ===== 断点重试：error 时从当前时间继续，最多 MAX_VIDEO_RETRIES 次 =====
+            // 断点重试：网络/解码/格式错误时从当前时间继续
             vid.addEventListener('error', () => {
                 const err = vid.error;
                 const code = err ? err.code : 0;
@@ -274,7 +268,6 @@
                 showVideoError(slide, video, err, slide._retryCount > 0);
             });
 
-            // 播放成功时清掉错误层（重试成功的情况）
             vid.addEventListener('playing', () => {
                 const box = slide.querySelector('.video-error');
                 if (box) box.remove();
