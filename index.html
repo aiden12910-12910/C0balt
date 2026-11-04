@@ -105,7 +105,6 @@
             padding: 20px; padding-top: 76px; box-sizing: border-box;
         }
 
-        /* 视频错误覆盖层 */
         .video-error {
             position: absolute; inset: 56px 0 0 0;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -122,7 +121,6 @@
             cursor: pointer;
         }
 
-        /* 列表加载失败提示 */
         .feed-error {
             height: 100dvh; scroll-snap-align: start;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -154,6 +152,8 @@
         // ===== 配置 =====
         const PAGE_SIZE = 20;
         const PREFETCH_THRESHOLD = 10;
+        const MAX_VIDEO_RETRIES = 3;   // 单个视频最多自动重试次数
+        const RETRY_DELAY_MS = 500;    // 重试前等待时间
 
         // ===== 状态 =====
         let globalMuted = true;
@@ -163,7 +163,7 @@
         let totalLoaded = 0;
         let observer = null;
         let spinner = null;
-        let totalAvailable = null; // 首次 list 返回的 total
+        let totalAvailable = null;
         const slideNodes = [];
 
         const feed = document.getElementById('feed');
@@ -189,26 +189,24 @@
             return data;
         }
 
-        // ===== 视频错误码可读化 =====
         function videoErrorText(err) {
             if (!err) return '未知错误';
             const code = err.code;
             if (code === 1) return '加载被中止 (MEDIA_ERR_ABORTED)';
             if (code === 2) return '网络错误 (MEDIA_ERR_NETWORK)';
             if (code === 3) return '解码失败 (MEDIA_ERR_DECODE)';
-            if (code === 4) return '格式不支持或文件不存在 (MEDIA_ERR_SRC_NOT_SUPPORTED)';
+            if (code === 4) return '格式不支持或文件不完整 (MEDIA_ERR_SRC_NOT_SUPPORTED)';
             return '错误码 ' + code;
         }
 
-        // ===== 在 slide 上显示视频错误覆盖层 =====
-        function showVideoError(slide, video, err) {
+        function showVideoError(slide, video, err, retried) {
             if (slide.querySelector('.video-error')) return;
             const box = document.createElement('div');
             box.className = 'video-error';
 
             const title = document.createElement('div');
             title.className = 'err-title';
-            title.textContent = '视频加载失败';
+            title.textContent = retried ? '视频重试后仍失败' : '视频加载失败';
 
             const name = document.createElement('div');
             name.className = 'err-name';
@@ -225,7 +223,10 @@
                 box.remove();
                 const vid = slide.querySelector('video');
                 if (vid) {
+                    slide._retryCount = 0;
+                    const t = vid.currentTime || 0;
                     vid.load();
+                    vid.currentTime = t;
                     vid.play().catch(() => {});
                 }
             });
@@ -242,6 +243,7 @@
             const slide = document.createElement('div');
             slide.className = 'video-slide';
             slide.dataset.name = video.name;
+            slide._retryCount = 0;
 
             const vid = document.createElement('video');
             vid.src = video.url;
@@ -251,12 +253,29 @@
             vid.preload = 'metadata';
             vid.setAttribute('webkit-playsinline', '');
 
-            // 错误处理：网络、解码、格式不支持
+            // ===== 断点重试：error 时从当前时间继续，最多 MAX_VIDEO_RETRIES 次 =====
             vid.addEventListener('error', () => {
-                showVideoError(slide, video, vid.error);
+                const err = vid.error;
+                const code = err ? err.code : 0;
+                const retriable = (code === 2 || code === 3 || code === 4);
+
+                if (retriable && slide._retryCount < MAX_VIDEO_RETRIES) {
+                    slide._retryCount++;
+                    const t = vid.currentTime || 0;
+                    console.warn('[video] retry', slide._retryCount, '/', MAX_VIDEO_RETRIES, 'for', video.name, 'at', t);
+                    setTimeout(() => {
+                        vid.load();
+                        vid.currentTime = t;
+                        vid.play().catch(() => {});
+                    }, RETRY_DELAY_MS);
+                    return;
+                }
+
+                showVideoError(slide, video, err, slide._retryCount > 0);
             });
-            // 播放失败（比如浏览器策略）不覆盖 UI，只在 console 提示
-            vid.addEventListener('play', () => {
+
+            // 播放成功时清掉错误层（重试成功的情况）
+            vid.addEventListener('playing', () => {
                 const box = slide.querySelector('.video-error');
                 if (box) box.remove();
             });
@@ -293,7 +312,6 @@
             return slide;
         }
 
-        // ===== 空列表 / 列表错误提示 =====
         function showEmptyCard() {
             const end = document.createElement('div');
             end.className = 'end-card';
@@ -324,7 +342,6 @@
             feed.appendChild(box);
         }
 
-        // ===== 加载下一页 =====
         async function loadNextPage() {
             if (loading || !hasMore) return;
             loading = true;
@@ -337,7 +354,6 @@
                     totalAvailable = data.total;
                 }
 
-                // 第一页就没有视频 → 显示“暂无视频”，不显示 end card
                 if (data.videos.length === 0) {
                     hasMore = false;
                     if (spinner && spinner.parentNode) spinner.parentNode.removeChild(spinner);
@@ -384,7 +400,6 @@
                         console.warn('[load] spinner node missing, skip re-append');
                     }
                 } else {
-                    // 还有内容但到底了 → end card
                     const end = document.createElement('div');
                     end.className = 'end-card';
                     end.innerHTML = `
@@ -401,7 +416,6 @@
                 console.error('[load] failed:', e);
                 hideLoading();
                 if (spinner && spinner.parentNode) spinner.parentNode.removeChild(spinner);
-                // 列表请求失败：显示错误 + 重试，不把 loading 状态卡死
                 if (totalLoaded === 0) {
                     showFeedError(e.message || String(e), () => {
                         hasMore = true;
@@ -409,7 +423,6 @@
                         loadNextPage();
                     });
                 } else {
-                    // 非第一页失败：保留已有内容，spinner 放回去，等下次滚动重试
                     if (spinner && spinner.parentNode !== feed) feed.appendChild(spinner);
                 }
             } finally {
