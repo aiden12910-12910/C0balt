@@ -1,7 +1,9 @@
 // api/fetch-videos.js
+import { Readable } from 'stream';
+
 export const config = {
   runtime: 'nodejs',
-  maxDuration: 60, // Hobby 计划最长 60 秒
+  maxDuration: 60,
 };
 
 const HF_USER = 'aiden12910';
@@ -17,10 +19,13 @@ export default async function handler(req, res) {
   // ========== 1. 分页列视频 ==========
   if (action === 'list') {
     const page = parseInt(req.query.page || '0', 10);
-    const size = Math.min(parseInt(req.query.size || '20', 10), 50); // 单页最多 50
+    const size = Math.min(parseInt(req.query.size || '20', 10), 50);
 
     try {
-      const r = await fetch(HF_API);
+      const r = await fetch(HF_API, {
+        // 列表是 JSON，加短缓存，减少重复请求
+        headers: { Accept: 'application/json' },
+      });
       if (!r.ok) {
         console.error('[list] HF API failed:', r.status);
         return res.status(500).json({ error: 'HF API failed', status: r.status });
@@ -37,12 +42,12 @@ export default async function handler(req, res) {
 
       const videos = slice.map(name => ({
         name,
-        // 走代理流，前端不用直连 HF
         url: `/api/fetch-videos?action=stream&name=${encodeURIComponent(name)}`,
       }));
 
       console.log(`[list] page=${page} size=${size} returned=${videos.length} total=${all.length} hasMore=${hasMore}`);
 
+      res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=30');
       return res.status(200).json({
         page,
         size,
@@ -61,8 +66,12 @@ export default async function handler(req, res) {
     const name = req.query.name;
     if (!name) return res.status(400).send('Missing name');
 
-    const hfUrl = HF_BASE + encodeURIComponent(name);
+    // 按 / 分段编码，保留子目录斜杠
+    const encodedPath = name.split('/').map(encodeURIComponent).join('/');
+    const hfUrl = HF_BASE + encodedPath;
+
     const headers = { Accept: '*/*' };
+    // 透传 Range，支持拖动进度条
     if (req.headers.range) headers.Range = req.headers.range;
 
     try {
@@ -72,27 +81,42 @@ export default async function handler(req, res) {
         return res.status(hfRes.status).send(`HF ${hfRes.status}`);
       }
 
+      res.status(hfRes.status);
       res.setHeader('Content-Type', hfRes.headers.get('content-type') || 'video/mp4');
+
       const cr = hfRes.headers.get('content-range');
       if (cr) res.setHeader('Content-Range', cr);
       const ar = hfRes.headers.get('accept-ranges');
       if (ar) res.setHeader('Accept-Ranges', ar);
-      const cl = hfRes.headers.get('content-length');
-      if (cl) res.setHeader('Content-Length', cl);
+
+      // 不设 Content-Length，避免 Vercel chunked 编码与声明长度不一致
+      // 只设 Content-Range，让浏览器按范围判断片段长度
       res.setHeader('Cache-Control', 'public, max-age=3600');
 
-      console.log(`[stream] ${name} status=${hfRes.status} range=${req.headers.range || 'full'}`);
+      console.log(`[stream] ${name} status=${hfRes.status} range=${req.headers.range || 'full'} type=${hfRes.headers.get('content-type') || 'unknown'}`);
 
-      const reader = hfRes.body.getReader();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        res.write(Buffer.from(value));
+      if (!hfRes.body) {
+        res.end();
+        return;
       }
-      res.end();
+
+      // 用 Node 流 pipe，正确处理背压和分块
+      const nodeStream = Readable.fromWeb(hfRes.body);
+
+      nodeStream.on('error', (err) => {
+        console.error(`[stream] pipe error for ${name}:`, err);
+        if (!res.writableEnded) res.end();
+      });
+
+      res.on('close', () => {
+        // 浏览器中途断开时销毁上游流，避免继续拉 HF 数据
+        if (!nodeStream.destroyed) nodeStream.destroy();
+      });
+
+      nodeStream.pipe(res);
     } catch (e) {
       console.error(`[stream] error for ${name}:`, e);
-      res.status(500).send('Stream error');
+      if (!res.writableEnded) res.status(500).send('Stream error');
     }
     return;
   }
