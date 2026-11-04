@@ -56,6 +56,23 @@
             transition: opacity 0.4s; pointer-events: none;
         }
         .mute-hint.show { opacity: 1; }
+
+        /* 播放状态图标（暂停 / 快进 / 快退） */
+        .play-state-icon {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            width: 84px; height: 84px; border-radius: 50%;
+            background: rgba(0,0,0,0.55); color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 36px; z-index: 30; opacity: 0;
+            pointer-events: none; transition: opacity 0.25s, transform 0.25s;
+        }
+        .play-state-icon.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+        .play-state-icon.small { width: 64px; height: 64px; font-size: 28px; }
+
         #loading-spinner {
             display: none; height: 100dvh; scroll-snap-align: start;
             align-items: center; justify-content: center; flex-direction: column; gap: 16px;
@@ -217,6 +234,21 @@
             }
         }
 
+        // ===== 播放状态图标 =====
+        function showPlayStateIcon(slide, icon, small) {
+            let iconEl = slide.querySelector('.play-state-icon');
+            if (!iconEl) {
+                iconEl = document.createElement('div');
+                iconEl.className = 'play-state-icon';
+                slide.appendChild(iconEl);
+            }
+            iconEl.textContent = icon;
+            iconEl.classList.toggle('small', !!small);
+            iconEl.classList.add('show');
+            clearTimeout(iconEl._timer);
+            iconEl._timer = setTimeout(() => iconEl.classList.remove('show'), 600);
+        }
+
         function renderSlide(video) {
             const slide = document.createElement('div');
             slide.className = 'video-slide';
@@ -249,6 +281,11 @@
             vid.addEventListener('playing', () => {
                 const box = slide.querySelector('.video-error');
                 if (box) box.remove();
+                showPlayStateIcon(slide, '▶', true);
+            });
+
+            vid.addEventListener('pause', () => {
+                if (vid.readyState > 0) showPlayStateIcon(slide, '⏸', false);
             });
 
             const meta = document.createElement('div');
@@ -409,14 +446,26 @@
         document.addEventListener('keydown', (e) => {
             const videos = document.querySelectorAll('.video-slide video');
             let current = null, maxVisible = 0;
+            let currentSlide = null;
             videos.forEach(v => {
                 const rect = v.getBoundingClientRect();
                 const visible = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
-                if (visible > maxVisible) { maxVisible = visible; current = v; }
+                if (visible > maxVisible) { maxVisible = visible; current = v; currentSlide = v.closest('.video-slide'); }
             });
             if (!current) return;
-            if (e.key === 'ArrowRight') { current.currentTime = Math.min(current.currentTime + 10, current.duration || Infinity); e.preventDefault(); }
-            else if (e.key === 'ArrowLeft') { current.currentTime = Math.max(current.currentTime - 10, 0); e.preventDefault(); }
+            if (e.key === 'ArrowRight') {
+                current.currentTime = Math.min(current.currentTime + 10, current.duration || Infinity);
+                if (currentSlide) showPlayStateIcon(currentSlide, '⏩', true);
+                e.preventDefault();
+            } else if (e.key === 'ArrowLeft') {
+                current.currentTime = Math.max(current.currentTime - 10, 0);
+                if (currentSlide) showPlayStateIcon(currentSlide, '⏪', true);
+                e.preventDefault();
+            } else if (e.key === ' ') {
+                if (current.paused) current.play().catch(() => {});
+                else current.pause();
+                e.preventDefault();
+            }
         });
 
         async function init() {
