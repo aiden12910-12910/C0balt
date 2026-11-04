@@ -127,6 +127,23 @@
             padding: 8px 18px; border-radius: 6px; font-size: 13px; font-weight: 600;
             cursor: pointer;
         }
+
+        /* 点击播放覆盖层（Chromebook 用） */
+        .tap-to-play {
+            position: absolute; inset: 56px 0 0 0;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.45); z-index: 15; cursor: pointer;
+            flex-direction: column; gap: 12px;
+        }
+        .tap-to-play .play-icon {
+            width: 64px; height: 64px; border-radius: 50%;
+            background: rgba(78,168,222,0.9);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 28px; color: #0f0f13;
+        }
+        .tap-to-play .play-hint {
+            font-size: 13px; color: #d4d4d8; text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+        }
     </style>
 </head>
 <body>
@@ -148,6 +165,10 @@
         const PREFETCH_THRESHOLD = 10;
         const MAX_VIDEO_RETRIES = 3;
         const RETRY_DELAY_MS = 500;
+
+        // 识别 Chromebook（ChromeOS UA 含 CrOS）
+        const IS_CROS = /CrOS/.test(navigator.userAgent);
+        console.log('[env] Chromebook =', IS_CROS);
 
         // ===== 状态 =====
         let globalMuted = true;
@@ -240,15 +261,16 @@
             slide._retryCount = 0;
 
             const vid = document.createElement('video');
+            // 加版本参数，绕过旧缓存坏片段
             const sep = video.url.includes('?') ? '&' : '?';
             vid.src = video.url + sep + 'v=' + Date.now();
             vid.loop = true;
             vid.playsInline = true;
             vid.muted = true;
-            vid.preload = 'metadata';
+            // Chromebook 上不预加载，等点击后再 load
+            vid.preload = IS_CROS ? 'none' : 'metadata';
             vid.setAttribute('webkit-playsinline', '');
 
-            // 断点重试：网络/解码/格式错误时从当前时间继续
             vid.addEventListener('error', () => {
                 const err = vid.error;
                 const code = err ? err.code : 0;
@@ -272,6 +294,8 @@
             vid.addEventListener('playing', () => {
                 const box = slide.querySelector('.video-error');
                 if (box) box.remove();
+                const tap = slide.querySelector('.tap-to-play');
+                if (tap) tap.remove();
             });
 
             const meta = document.createElement('div');
@@ -298,7 +322,28 @@
             slide.appendChild(meta);
             slide.appendChild(actions);
 
+            // Chromebook：点击播放覆盖层
+            if (IS_CROS) {
+                const tap = document.createElement('div');
+                tap.className = 'tap-to-play';
+                tap.innerHTML = `
+                    <div class="play-icon">▶</div>
+                    <div class="play-hint">点按播放</div>
+                `;
+                tap.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    tap.remove();
+                    vid.muted = globalMuted;
+                    vid.load();
+                    vid.play().catch((err) => {
+                        console.warn('[video] tap play failed:', err);
+                    });
+                });
+                slide.appendChild(tap);
+            }
+
             vid.addEventListener('click', () => {
+                if (IS_CROS && vid.readyState === 0) return; // 还没加载过，交给覆盖层
                 if (vid.paused) vid.play().catch(() => {});
                 else vid.pause();
             });
@@ -435,8 +480,19 @@
                         document.querySelectorAll('.video-slide video').forEach(v => {
                             if (v !== vid) { v.pause(); v.currentTime = 0; }
                         });
-                        vid.muted = globalMuted;
-                        vid.play().catch(() => {});
+
+                        // Chromebook 上不自动播，等用户点覆盖层
+                        if (IS_CROS) {
+                            const tap = slide.querySelector('.tap-to-play');
+                            if (!tap) {
+                                // 已经点过播放的，继续播
+                                vid.muted = globalMuted;
+                                vid.play().catch(() => {});
+                            }
+                        } else {
+                            vid.muted = globalMuted;
+                            vid.play().catch(() => {});
+                        }
 
                         const idx = slideNodes.indexOf(slide);
                         const remain = slideNodes.length - idx;
