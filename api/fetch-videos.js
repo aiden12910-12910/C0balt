@@ -14,8 +14,7 @@ const HF_BASE = `https://huggingface.co/${HF_USER}/${HF_REPO}/resolve/main/`;
 export default async function handler(req, res) {
   const action = req.query.action || 'list';
 
-// 原来是 res.setHeader('Cache-Control', 'public, max-age=3600');
-  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Access-Control-Allow-Origin', '*');
 
   // ========== 1. 分页列视频 ==========
   if (action === 'list') {
@@ -24,7 +23,6 @@ export default async function handler(req, res) {
 
     try {
       const r = await fetch(HF_API, {
-        // 列表是 JSON，加短缓存，减少重复请求
         headers: { Accept: 'application/json' },
       });
       if (!r.ok) {
@@ -67,12 +65,10 @@ export default async function handler(req, res) {
     const name = req.query.name;
     if (!name) return res.status(400).send('Missing name');
 
-    // 按 / 分段编码，保留子目录斜杠
     const encodedPath = name.split('/').map(encodeURIComponent).join('/');
     const hfUrl = HF_BASE + encodedPath;
 
     const headers = { Accept: '*/*' };
-    // 透传 Range，支持拖动进度条
     if (req.headers.range) headers.Range = req.headers.range;
 
     try {
@@ -90,18 +86,19 @@ export default async function handler(req, res) {
       const ar = hfRes.headers.get('accept-ranges');
       if (ar) res.setHeader('Accept-Ranges', ar);
 
-      // 不设 Content-Length，避免 Vercel chunked 编码与声明长度不一致
-      // 只设 Content-Range，让浏览器按范围判断片段长度
-      res.setHeader('Cache-Control', 'public, max-age=3600');
+      // 关键改动：原样透传 HF 的 Content-Length
+      const cl = hfRes.headers.get('content-length');
+      if (cl) res.setHeader('Content-Length', cl);
 
-      console.log(`[stream] ${name} status=${hfRes.status} range=${req.headers.range || 'full'} type=${hfRes.headers.get('content-type') || 'unknown'}`);
+      res.setHeader('Cache-Control', 'no-store');
+
+      console.log(`[stream] ${name} status=${hfRes.status} range=${req.headers.range || 'full'} len=${cl || 'none'}`);
 
       if (!hfRes.body) {
         res.end();
         return;
       }
 
-      // 用 Node 流 pipe，正确处理背压和分块
       const nodeStream = Readable.fromWeb(hfRes.body);
 
       nodeStream.on('error', (err) => {
@@ -110,7 +107,6 @@ export default async function handler(req, res) {
       });
 
       res.on('close', () => {
-        // 浏览器中途断开时销毁上游流，避免继续拉 HF 数据
         if (!nodeStream.destroyed) nodeStream.destroy();
       });
 
