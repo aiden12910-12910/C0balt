@@ -14,7 +14,8 @@ const HF_BASE = `https://huggingface.co/${HF_USER}/${HF_REPO}/resolve/main/`;
 export default async function handler(req, res) {
   const action = req.query.action || 'list';
 
-  res.setHeader('Access-Control-Allow-Origin', '*');
+// 原来是 res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.setHeader('Cache-Control', 'no-store');
 
   // ========== 1. 分页列视频 ==========
   if (action === 'list') {
