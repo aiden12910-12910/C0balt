@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>C0balt · For You</title>
+    <title>C0balt</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body {
@@ -124,8 +124,8 @@
 
     <script>
         // ===== 配置 =====
-        const PAGE_SIZE = 20;          // 每页 20 个，预留网络损耗，可改小
-        const PREFETCH_THRESHOLD = 10; // 剩 10 条时预取下一页
+        const PAGE_SIZE = 20;
+        const PREFETCH_THRESHOLD = 10;
 
         // ===== 状态 =====
         let globalMuted = true;
@@ -134,8 +134,8 @@
         let loading = false;
         let totalLoaded = 0;
         let observer = null;
-        let spinner = null;            // 关键：用 let，后面 init() 里重新赋值
-        const slideNodes = [];         // 记录已渲染的 slide，用于触底判断
+        let spinner = null;
+        const slideNodes = [];
 
         const feed = document.getElementById('feed');
 
@@ -208,7 +208,7 @@
             return slide;
         }
 
-        // ===== 加载下一页并追加 =====
+        // ===== 加载下一页并追加（每页渲染前随机洗牌）=====
         async function loadNextPage() {
             if (loading || !hasMore) return;
             loading = true;
@@ -224,10 +224,17 @@
                     return;
                 }
 
-                // 把 loading 动画从 DOM 里暂时移除（如果它在 feed 末尾）
                 if (spinner && spinner.parentNode) spinner.parentNode.removeChild(spinner);
 
-                data.videos.forEach(v => {
+                // 每页到货后、渲染前，随机打乱本页顺序
+                const pageVideos = data.videos.slice();
+                for (let i = pageVideos.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [pageVideos[i], pageVideos[j]] = [pageVideos[j], pageVideos[i]];
+                }
+                console.log('[load] page', currentPage, 'shuffled order:', pageVideos.map(v => v.name).join(', '));
+
+                pageVideos.forEach(v => {
                     const slide = renderSlide(v);
                     feed.appendChild(slide);
                     slideNodes.push(slide);
@@ -238,7 +245,6 @@
                 currentPage += 1;
                 hasMore = data.hasMore;
 
-                // 如果还有更多，把 loading 动画重新放回末尾（判空防御）
                 if (hasMore) {
                     if (spinner) {
                         feed.appendChild(spinner);
@@ -246,7 +252,6 @@
                         console.warn('[load] spinner node missing, skip re-append');
                     }
                 } else {
-                    // 没有更多了，加 end-card
                     const end = document.createElement('div');
                     end.className = 'end-card';
                     end.innerHTML = `
@@ -276,14 +281,12 @@
                     if (!vid) return;
 
                     if (entry.isIntersecting) {
-                        // 暂停其他所有
                         document.querySelectorAll('.video-slide video').forEach(v => {
                             if (v !== vid) { v.pause(); v.currentTime = 0; }
                         });
                         vid.muted = globalMuted;
                         vid.play().catch(() => {});
 
-                        // 触底预取：当前 slide 的索引 >= 总数 - 阈值
                         const idx = slideNodes.indexOf(slide);
                         const remain = slideNodes.length - idx;
                         console.log('[scroll] idx=', idx, 'remain=', remain, 'hasMore=', hasMore, 'loading=', loading);
@@ -329,16 +332,13 @@
 
         // ===== 初始化 =====
         async function init() {
-            // 清空 loading status
             feed.innerHTML = '';
 
-            // 创建 spinner 节点（预留，你以后换自己的动画）
             const sp = document.createElement('div');
             sp.id = 'loading-spinner';
             sp.innerHTML = '<div class="spinner"></div><div>Loading...</div>';
             feed.appendChild(sp);
 
-            // 关键：把全局 spinner 指向新节点，供 loadNextPage 使用
             spinner = sp;
 
             setupObserver();
