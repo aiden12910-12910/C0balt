@@ -1,4 +1,4 @@
-# C0balt
+# C0balt BETA
 
 仿 TikTok「For You」风格的全屏竖滑视频网站。本地用 TikPipe 从 TikTok 抓取视频，上传到 Hugging Face，Vercel 托管的网页从 HF 读取并播放。
 
