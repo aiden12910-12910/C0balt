@@ -240,7 +240,8 @@
             slide._retryCount = 0;
 
             const vid = document.createElement('video');
-            vid.src = video.url;
+            const sep = video.url.includes('?') ? '&' : '?';
+            vid.src = video.url + sep + 'v=' + Date.now();
             vid.loop = true;
             vid.playsInline = true;
             vid.muted = true;
