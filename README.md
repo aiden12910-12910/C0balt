@@ -17,10 +17,10 @@ TikTok ──Playwright 拦截──▶ yt-dlp 下载
                          X:\TikTok_Downloads (MP4)
                                   │
                          convert.py：ffmpeg 转 HLS
-                         （360p / 24fps / crf 32 / hls_time 2 / 64k 音频）
+                         （240p / 15fps / crf 40 / hls_time 2 / 48k 音频）
                                   │
                                   ▼
-                         D:\TikTok_HLS (index.m3u8 + seg_*.ts)
+                         X:\TikTok_HLS (index.m3u8 + seg_*.ts)
                                   │
                          upload.py：每 50 个一组 upload_folder
                                   │
@@ -37,8 +37,8 @@ TikTok ──Playwright 拦截──▶ yt-dlp 下载
 ```
 
 - **`download.py`**：Playwright 打开带登录态的 Chrome，滚动 TikTok 页面，拦截 `item_list` / `feed` 接口的 JSON，把视频 URL 交给 yt-dlp 并发下载 MP4 到 `X:\TikTok_Downloads`。
-- **`convert.py`**：10 并发把 `X:\TikTok_Downloads` 的 MP4 转成 HLS（360p、24fps、crf 32、2 秒分片、64k 音频），输出到 `D:\TikTok_HLS\{base}\`。**不删本地 MP4。**
-- **`upload.py`**：每 50 个视频一组，`upload_folder` 到 HF 的 `hls/`，成功后删该组本地 HLS。支持 `--convert` 先转再传，也支持只上传。
+- **`convert.py`**：10 并发把 `X:\TikTok_Downloads` 的 MP4 转成 HLS（240p、15fps、crf 40、2 秒分片、48k 音频），输出到 `X:\TikTok_HLS\{base}\`。默认**不删**源 MP4；加 `--delete-source` 才在转换成功后删。
+- **`upload.py`**：每 50 个视频一组，`upload_folder` 到 HF 的 `hls/`，成功后删该组本地 HLS。支持 `--convert` 先转再传，也支持只上传。加 `--delete-source` 时转换成功后删源 MP4。
 - **Vercel 网页**：`api/fetch-videos.js` 列 `hls/*/index.m3u8`，代理 m3u8 时把分片路径改写成代理 URL，代理 ts 时透传 Range；`index.html` 用 hls.js 播放，分页加载、触底预取、每页随机、暂停/快进图标。
 
 ---
@@ -50,7 +50,6 @@ TikTok ──Playwright 拦截──▶ yt-dlp 下载
 - Google Chrome（官方安装版）
 - 一个 Hugging Face 账号
 - ffmpeg（`winget install Gyan.FFmpeg`，装完重开 PowerShell）
-- 30GB 内存可选（转换 10 并发时更宽裕，16GB 也能跑，只是别同时开太多其他程序）
 
 ---
 
@@ -93,7 +92,7 @@ echo $env:HF_TOKEN
 | `ruta_descargas` | 下载目录（也兼容 `download_path`） |
 | `cantidad_videos` | 每次抓取目标数量（也兼容 `video_count`） |
 | `descargas_simultaneas` | 并发下载数，建议 4–8（也兼容 `concurrent_downloads`） |
-| `source_url` | 抓取来源，默认 For You；可换成作者主页、标签页等（也兼容 `url_origen`） |
+| `source_url` | 抓取来源，默认 For You（也兼容 `url_origen`） |
 
 ### 5. 登录 TikTok（一次即可）
 
@@ -103,14 +102,13 @@ echo $env:HF_TOKEN
 
 ### 6. 部署网页到 Vercel
 
-1. 把 `index.html` 和 `api/fetch-videos.js` 推到 GitHub 仓库。
+1. 把 `index.html` 和 `api/fetch-videos.js` 推到 GitHub 仓库，`api/` 目录要保留。
 2. https://vercel.com/new 导入该仓库，**Framework Preset** 选 **Other**，Deploy。
 3. `api/fetch-videos.js` 顶部的 `HF_USER` / `HF_REPO` 必须和你的 HF 仓库一致。
 4. 改了这两个常量后，Vercel 重新部署。
 
-> 本地 Python 脚本（`download.py` / `convert.py` / `upload.py`）不需要部署，装好依赖、配好 `config.json` 后直接双击 `bats/` 里的 bat 运行即可。只有网页侧（`index.html` + `api/fetch-videos.js`）需要推到 GitHub 并部署到 Vercel。
+> 本地 Python 脚本（`download.py` / `convert.py` / `upload.py`）**不需要部署**，装好依赖、配好 `config.json` 后直接双击 `bats/` 里的 bat 运行即可。只有网页侧（`index.html` + `api/fetch-videos.js`）需要推到 GitHub 并部署到 Vercel。
 
-仓库里要保留 `api/` 目录结构，Vercel 会自动把 `api/fetch-videos.js` 识别为 Serverless Function，不需要额外配置 `package.json`（HLS 代理只用 Node 内置的 `stream`）。
 ---
 
 ## 日常使用 / Daily use
@@ -120,10 +118,10 @@ echo $env:HF_TOKEN
 | 菜单项 | 作用 |
 |---|---|
 | 1. Check / install dependencies | 装/更新依赖 |
-| 2. Show and change HF_TOKEN | 显示当前 token，可覆盖修改 |
+| 2. Show and change HF_TOKEN | 显示当前 token（只显示前 8 位），可覆盖修改 |
 | 3. Download only (capture MP4) | 只抓取并下载 MP4 |
-| 4. Convert only (MP4 → HLS) | 只转换，输出到 `D:\TikTok_HLS` |
-| 5. Upload only (HLS → HF) | 只上传 `D:\TikTok_HLS` 里已有的 HLS |
+| 4. Convert only (MP4 → HLS) | 只转换，输出到 `X:\TikTok_HLS` |
+| 5. Upload only (HLS → HF) | 只上传 `X:\TikTok_HLS` 里已有的 HLS |
 | 6. Convert + Upload | 转换 + 上传（10 并发转换，50 个一组上传） |
 | 7. DANGER: Delete ALL FILES from HF | **删除 HF 仓库所有文件**（双重确认） |
 | 8. Exit | 退出 |
@@ -133,9 +131,9 @@ echo $env:HF_TOKEN
 | 文件 | 作用 |
 |---|---|
 | `bats/download-only.bat` | 只抓取并下载 MP4，不转换、不上传 |
-| `bats/convert-only.bat` | 只转换：MP4 → HLS，输出到 `D:\TikTok_HLS` |
-| `bats/upload-only.bat` | 只上传：`D:\TikTok_HLS` → HF `hls/` |
-| `bats/convert-and-upload.bat` | 转换 + 上传（10 并发转换，50 个一组上传） |
+| `bats/convert-only.bat` | 只转换：MP4 → HLS，输出到 `X:\TikTok_HLS`（会问是否删源 MP4） |
+| `bats/upload-only.bat` | 只上传：`X:\TikTok_HLS` → HF `hls/` |
+| `bats/convert-and-upload.bat` | 转换 + 上传（10 并发转换，50 个一组上传，会问是否删源 MP4） |
 | `bats/danger-delete-all.bat` | 删除 HF 仓库所有文件 |
 | `bats/change-source.bat` | 修改 `config.json` 里的 `source_url` |
 | `bats/pre-login.bat` | 重新登录 TikTok |
@@ -147,10 +145,13 @@ echo $env:HF_TOKEN
 | 目录 | 用途 |
 |---|---|
 | `X:\TikTok_Downloads` | 下载的原始 MP4（`download.py` 写入，`convert.py` 读取） |
-| `D:\TikTok_HLS` | 转换后的 HLS（`convert.py` / `upload.py --convert` 写入，`upload.py` 上传后删） |
-| `D:\TikTok_HLS\_upload_gN` | 上传时临时复制的 50 个一组，上传完删 |
+| `X:\TikTok_HLS` | 转换后的 HLS（`convert.py` / `upload.py --convert` 写入，`upload.py` 上传后删） |
+| `X:\TikTok_HLS\_errors` | 转换失败时 ffmpeg 的完整 stderr |
+| `X:\TikTok_HLS\_failed.txt` | 最后一次转换失败的文件名列表 |
 
-**上传策略**：`upload.py` 每 50 个视频一组，把这一组的 HLS 目录复制到 `_upload_gN`，一次 `upload_folder` 上传到 HF `hls/`，成功后删 `_upload_gN` 和该组本地 HLS。失败时整组保留，可重跑。HF 的 commit 限流是 128 次/小时，50 个一组后 398 个视频大约 8 组，commit 数很少，基本不会撞限流。
+**默认不删源 MP4**。要转换成功后删除，加 `--delete-source`，或在 `convert-only.bat` / `convert-and-upload.bat` 里输 `Y`。
+
+**上传策略**：`upload.py` 每 50 个视频一组，把这一组的 HLS 目录复制到 `_upload_gN`，一次 `upload_folder` 上传到 HF `hls/`，成功后删 `_upload_gN` 和该组本地 HLS。失败时整组保留，可重跑。HF 的 commit 限流是 128 次/小时，50 个一组后 commit 数很少，基本不会撞限流。
 
 ---
 
@@ -174,7 +175,7 @@ echo $env:HF_TOKEN
 | 文件 | 作用 |
 |---|---|
 | `download.py` | 抓取 + 下载 MP4 |
-| `convert.py` | MP4 → HLS（10 并发，360p/24fps/crf 32/64k 音频），不删 MP4 |
+| `convert.py` | MP4 → HLS（10 并发，240p/15fps/crf 40/48k 音频），默认不删 MP4 |
 | `upload.py` | 只上传 / 转换+上传（10 并发转换，50 个一组上传），成功后删本地 HLS |
 | `delete_hf.py` | 删除 HF 仓库所有文件（包括 `hls/` 下的 m3u8 和 ts） |
 | `login.py` | 一次性登录 TikTok，保存 session 到 `perfil_navegador/` |
@@ -199,6 +200,14 @@ echo $env:HF_TOKEN
 - HF 的 commit 限流（128 次/小时）。等约 1 小时重跑 `bats/upload-only.bat`，`upload_folder` 会跳过已上传的、只补传剩余。
 - `upload.py` 每 50 个一组，398 个视频大约 8 组，commit 数很少，正常不会撞限流。
 
+**转换报 `[WinError 32] 另一个程序正在使用此文件`**
+- 关掉播放器、资源管理器预览、残留的 ffmpeg 进程，等几秒重跑 `convert.py`。已转好的会跳过，被占用的会重新尝试。
+- 查残留 ffmpeg：`Get-Process ffmpeg -ErrorAction SilentlyContinue`，有就 `Stop-Process -Name ffmpeg -Force`。
+
+**转换报 `Conversion failed!`**
+- 看 `X:\TikTok_HLS\_errors\{base}.log`，里面是 ffmpeg 的完整 stderr。常见是源 MP4 尾部损坏或不完整，重新下载该视频再转。
+- 失败列表在 `X:\TikTok_HLS\_failed.txt`（只记录最后一次运行）。
+
 **没抓到视频**
 - 重新跑 `pre-login.bat`，TikTok 登录态可能过期。
 - 把 `descargas_simultaneas` 降到 3–4。
@@ -210,16 +219,12 @@ echo $env:HF_TOKEN
 **`ffmpeg not found`**
 - `winget install Gyan.FFmpeg`，然后重开 PowerShell。
 
-**转换很慢**
-- 10 并发转换吃 CPU，机器弱会慢。可以把 `convert.py` / `upload.py` 的 `CONCURRENCY` 降到 5，或者把 `crf` 调到 34、`scale=480:-2` 进一步降画质。
-- 想提高画质：`scale=854:-2`（480p）、`crf 30`、`-b:a 96k`。
-
 **Token 相关**
 - 换 token：`bats/set-token.bat` 覆盖写入，然后关掉所有终端重开。
 - 怀疑泄露：去 https://huggingface.co/settings/tokens Revoke 旧的，生成新的，再 `set-token.bat`。
 
 **下载整个 HF 仓库**
-- 用 `hf download aiden12910/tiktok-videos --repo-type model --include "hls/*" --local-dir D:\TikTok_HLS_Backup`，只下 HLS，不碰旧 MP4。
+- 用 `hf download aiden12910/tiktok-videos --repo-type model --include "hls/*" --local-dir X:\TikTok_HLS_Backup`，只下 HLS，不碰旧 MP4。
 
 ---
 
