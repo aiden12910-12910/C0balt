@@ -108,6 +108,9 @@ echo $env:HF_TOKEN
 3. `api/fetch-videos.js` 顶部的 `HF_USER` / `HF_REPO` 必须和你的 HF 仓库一致。
 4. 改了这两个常量后，Vercel 重新部署。
 
+> 本地 Python 脚本（`download.py` / `convert.py` / `upload.py`）不需要部署，装好依赖、配好 `config.json` 后直接双击 `bats/` 里的 bat 运行即可。只有网页侧（`index.html` + `api/fetch-videos.js`）需要推到 GitHub 并部署到 Vercel。
+
+仓库里要保留 `api/` 目录结构，Vercel 会自动把 `api/fetch-videos.js` 识别为 Serverless Function，不需要额外配置 `package.json`（HLS 代理只用 Node 内置的 `stream`）。
 ---
 
 ## 日常使用 / Daily use
