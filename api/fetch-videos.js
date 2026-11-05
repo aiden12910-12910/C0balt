@@ -37,15 +37,19 @@ export default async function handler(req, res) {
   }
 
   if (action === 'stream') {
-    const name = req.query.name;
+    // 关键：先解码，保证 %2F 被还原成 /，m3u8 判断和 baseDir 才正确
+    const name = decodeURIComponent(req.query.name || '');
     if (!name) return res.status(400).send('Missing name');
+
     const encodedPath = name.split('/').map(encodeURIComponent).join('/');
     const hfUrl = HF_BASE + encodedPath;
     const headers = { Accept: '*/*' };
     if (req.headers.range) headers.Range = req.headers.range;
+
     try {
       const hfRes = await fetch(hfUrl, { headers });
       if (!hfRes.ok && hfRes.status !== 206) {
+        console.error(`[stream] HF ${hfRes.status} for ${name}`);
         return res.status(hfRes.status).send(`HF ${hfRes.status}`);
       }
 
@@ -71,12 +75,20 @@ export default async function handler(req, res) {
       const cl = hfRes.headers.get('content-length');
       if (cl) res.setHeader('Content-Length', cl);
       res.setHeader('Cache-Control', 'no-store');
+
+      console.log(`[stream] ${name} status=${hfRes.status} range=${req.headers.range || 'full'} len=${cl || 'none'}`);
+
       if (!hfRes.body) { res.end(); return; }
+
       const nodeStream = Readable.fromWeb(hfRes.body);
-      nodeStream.on('error', () => { if (!res.writableEnded) res.end(); });
+      nodeStream.on('error', (err) => {
+        console.error('[stream] pipe error:', err);
+        if (!res.writableEnded) res.end();
+      });
       res.on('close', () => { if (!nodeStream.destroyed) nodeStream.destroy(); });
       nodeStream.pipe(res);
     } catch (e) {
+      console.error(`[stream] error for ${name}:`, e);
       if (!res.writableEnded) res.status(500).send('Stream error');
     }
     return;
