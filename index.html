@@ -57,7 +57,6 @@
         }
         .mute-hint.show { opacity: 1; }
 
-        /* 播放状态图标（暂停 / 快进 / 快退） */
         .play-state-icon {
             position: absolute; top: 50%; left: 50%;
             transform: translate(-50%, -50%) scale(0.8);
@@ -137,6 +136,7 @@
         const PREFETCH_THRESHOLD = 10;
         const MAX_VIDEO_RETRIES = 3;
         const RETRY_DELAY_MS = 500;
+        const HLS_ERROR_RETRY_MAX = 3;
 
         let globalMuted = true;
         let currentPage = 0;
@@ -192,6 +192,7 @@
                 const vid = slide.querySelector('video');
                 if (vid) {
                     slide._retryCount = 0;
+                    slide._hlsRetry = 0;
                     initHls(slide, vid, video);
                     vid.play().catch(() => {});
                 }
@@ -206,6 +207,7 @@
                 try { slide._hls.destroy(); } catch (e) {}
                 slide._hls = null;
             }
+            slide._hlsRetry = 0;
             if (window.Hls && Hls.isSupported()) {
                 const hls = new Hls({
                     maxBufferLength: 6,
@@ -218,12 +220,18 @@
                 hls.attachMedia(vid);
                 hls.on(Hls.Events.ERROR, (event, data) => {
                     if (!data.fatal) return;
+                    if (slide._hlsRetry >= HLS_ERROR_RETRY_MAX) {
+                        showVideoError(slide, video, { code: 4 }, true);
+                        return;
+                    }
+                    slide._hlsRetry++;
+                    console.warn('[hls] retry', slide._hlsRetry, '/', HLS_ERROR_RETRY_MAX, 'for', video.name, data.type);
                     if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
                         hls.startLoad();
                     } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
                         hls.recoverMediaError();
                     } else {
-                        showVideoError(slide, video, { code: 4 }, slide._retryCount > 0);
+                        showVideoError(slide, video, { code: 4 }, true);
                     }
                 });
                 slide._hls = hls;
@@ -234,7 +242,6 @@
             }
         }
 
-        // ===== 播放状态图标 =====
         function showPlayStateIcon(slide, icon, small) {
             let iconEl = slide.querySelector('.play-state-icon');
             if (!iconEl) {
@@ -254,6 +261,7 @@
             slide.className = 'video-slide';
             slide.dataset.name = video.name;
             slide._retryCount = 0;
+            slide._hlsRetry = 0;
 
             const vid = document.createElement('video');
             vid.loop = true;
@@ -263,6 +271,8 @@
             vid.setAttribute('webkit-playsinline', '');
 
             vid.addEventListener('error', () => {
+                // hls.js 模式下由 Hls.Events.ERROR 处理，避免重复重试
+                if (slide._hls) return;
                 const err = vid.error;
                 const code = err ? err.code : 0;
                 const retriable = (code === 2 || code === 3 || code === 4);
@@ -285,7 +295,11 @@
             });
 
             vid.addEventListener('pause', () => {
-                if (vid.readyState > 0) showPlayStateIcon(slide, '⏸', false);
+                if (vid.readyState === 0) return;
+                // 只在 slide 仍在视口内时显示暂停图标，避免滑走时误触发
+                const rect = slide.getBoundingClientRect();
+                const inView = rect.bottom > 0 && rect.top < window.innerHeight;
+                if (inView) showPlayStateIcon(slide, '⏸', false);
             });
 
             const meta = document.createElement('div');
