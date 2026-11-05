@@ -16,8 +16,13 @@ TikTok ──Playwright 拦截──▶ yt-dlp 下载
                                   ▼
                          X:\TikTok_Downloads (MP4)
                                   │
-                         upload_hf.py：ffmpeg 转 HLS
-                         （720p / 30fps / crf 28 / hls_time 2）
+                         convert.py：ffmpeg 转 HLS
+                         （360p / 24fps / crf 32 / hls_time 2 / 64k 音频）
+                                  │
+                                  ▼
+                         D:\TikTok_HLS (index.m3u8 + seg_*.ts)
+                                  │
+                         upload.py：每 50 个一组 upload_folder
                                   │
                                   ▼
                          Hugging Face
@@ -31,8 +36,9 @@ TikTok ──Playwright 拦截──▶ yt-dlp 下载
                          index.html hls.js 播放
 ```
 
-- **TikPipe（`main.py` / `download_only.py`）**：Playwright 打开带登录态的 Chrome，滚动 TikTok 页面，拦截 `item_list` / `feed` 接口的 JSON，把视频 URL 交给 yt-dlp 并发下载 MP4。
-- **`upload_hf.py`**：把本地 MP4 用 ffmpeg 转成 HLS（720p、30fps、crf 28、2 秒分片），上传到 HF 的 `hls/{base}/`，成功后删本地 MP4。
+- **`download.py`**：Playwright 打开带登录态的 Chrome，滚动 TikTok 页面，拦截 `item_list` / `feed` 接口的 JSON，把视频 URL 交给 yt-dlp 并发下载 MP4 到 `X:\TikTok_Downloads`。
+- **`convert.py`**：10 并发把 `X:\TikTok_Downloads` 的 MP4 转成 HLS（360p、24fps、crf 32、2 秒分片、64k 音频），输出到 `D:\TikTok_HLS\{base}\`。**不删本地 MP4。**
+- **`upload.py`**：每 50 个视频一组，`upload_folder` 到 HF 的 `hls/`，成功后删该组本地 HLS。支持 `--convert` 先转再传，也支持只上传。
 - **Vercel 网页**：`api/fetch-videos.js` 列 `hls/*/index.m3u8`，代理 m3u8 时把分片路径改写成代理 URL，代理 ts 时透传 Range；`index.html` 用 hls.js 播放，分页加载、触底预取、每页随机、暂停/快进图标。
 
 ---
@@ -44,6 +50,7 @@ TikTok ──Playwright 拦截──▶ yt-dlp 下载
 - Google Chrome（官方安装版）
 - 一个 Hugging Face 账号
 - ffmpeg（`winget install Gyan.FFmpeg`，装完重开 PowerShell）
+- 30GB 内存可选（转换 10 并发时更宽裕，16GB 也能跑，只是别同时开太多其他程序）
 
 ---
 
@@ -92,7 +99,7 @@ echo $env:HF_TOKEN
 
 双击 `bats/pre-login.bat`，弹出 Chrome。登录 Google 和 TikTok，然后**关掉窗口**。登录态保存到 `perfil_navegador/`。
 
-> 运行 `main.py` 前关掉其他 Chrome 窗口，否则会报 `Database is locked`。
+> 运行 `download.py` 前关掉其他 Chrome 窗口，否则会报 `Database is locked`。
 
 ### 6. 部署网页到 Vercel
 
@@ -111,25 +118,36 @@ echo $env:HF_TOKEN
 |---|---|
 | 1. Check / install dependencies | 装/更新依赖 |
 | 2. Show and change HF_TOKEN | 显示当前 token，可覆盖修改 |
-| 3. main-run.bat | 抓视频 + 转 HLS + 上传 HF + 删本地 |
-| 4. manual-upload.bat | 只上传本地已有 MP4（转 HLS） |
-| 5. danger-delete-all.bat | **删除 HF 仓库所有文件**（双重确认） |
-| 6. Exit | 退出 |
+| 3. Download only (capture MP4) | 只抓取并下载 MP4 |
+| 4. Convert only (MP4 → HLS) | 只转换，输出到 `D:\TikTok_HLS` |
+| 5. Upload only (HLS → HF) | 只上传 `D:\TikTok_HLS` 里已有的 HLS |
+| 6. Convert + Upload | 转换 + 上传（10 并发转换，50 个一组上传） |
+| 7. DANGER: Delete ALL FILES from HF | **删除 HF 仓库所有文件**（双重确认） |
+| 8. Exit | 退出 |
 
 也可以单独双击：
 
 | 文件 | 作用 |
 |---|---|
-| `bats/main-run.bat` | 抓 + 转 HLS + 上传 + 删本地（日常主入口） |
-| `bats/download-only.bat` | 只抓取并下载 MP4，不上传 |
-| `bats/manual-upload.bat` | 只上传本地 MP4（转 HLS），成功后删本地 |
+| `bats/download-only.bat` | 只抓取并下载 MP4，不转换、不上传 |
+| `bats/convert-only.bat` | 只转换：MP4 → HLS，输出到 `D:\TikTok_HLS` |
+| `bats/upload-only.bat` | 只上传：`D:\TikTok_HLS` → HF `hls/` |
+| `bats/convert-and-upload.bat` | 转换 + 上传（10 并发转换，50 个一组上传） |
 | `bats/danger-delete-all.bat` | 删除 HF 仓库所有文件 |
 | `bats/change-source.bat` | 修改 `config.json` 里的 `source_url` |
 | `bats/pre-login.bat` | 重新登录 TikTok |
 | `bats/set-token.bat` | 设置/覆盖 HF Token |
 | `bats/update-requirements.bat` | 安装/更新 Python 依赖和 Playwright Chromium |
 
-**上传策略**：`upload_hf.py` 遍历 `X:\TikTok_Downloads` 下的**子文件夹**，逐个 MP4 转 HLS 后 `upload_folder` 上传到 `hls/{base}/`。每批失败时该批本地 MP4 保留，转码临时目录清理，重跑会跳过已上传的。根目录散落的 MP4 当成 `root` 一批处理。
+**目录约定**：
+
+| 目录 | 用途 |
+|---|---|
+| `X:\TikTok_Downloads` | 下载的原始 MP4（`download.py` 写入，`convert.py` 读取） |
+| `D:\TikTok_HLS` | 转换后的 HLS（`convert.py` / `upload.py --convert` 写入，`upload.py` 上传后删） |
+| `D:\TikTok_HLS\_upload_gN` | 上传时临时复制的 50 个一组，上传完删 |
+
+**上传策略**：`upload.py` 每 50 个视频一组，把这一组的 HLS 目录复制到 `_upload_gN`，一次 `upload_folder` 上传到 HF `hls/`，成功后删 `_upload_gN` 和该组本地 HLS。失败时整组保留，可重跑。HF 的 commit 限流是 128 次/小时，50 个一组后 398 个视频大约 8 组，commit 数很少，基本不会撞限流。
 
 ---
 
@@ -152,9 +170,9 @@ echo $env:HF_TOKEN
 
 | 文件 | 作用 |
 |---|---|
-| `main.py` | 抓取 + 下载 MP4（完整流水线的下载阶段） |
-| `download_only.py` | 只抓取 + 下载 MP4，不上传 |
-| `upload_hf.py` | MP4 转 HLS（720p/30fps/crf 28），上传 HF，成功后删本地 |
+| `download.py` | 抓取 + 下载 MP4 |
+| `convert.py` | MP4 → HLS（10 并发，360p/24fps/crf 32/64k 音频），不删 MP4 |
+| `upload.py` | 只上传 / 转换+上传（10 并发转换，50 个一组上传），成功后删本地 HLS |
 | `delete_hf.py` | 删除 HF 仓库所有文件（包括 `hls/` 下的 m3u8 和 ts） |
 | `login.py` | 一次性登录 TikTok，保存 session 到 `perfil_navegador/` |
 | `config.json` | 下载路径、数量、并发、来源 URL |
@@ -175,19 +193,23 @@ echo $env:HF_TOKEN
 - 404 → 检查 `api/fetch-videos.js` 里的 `HF_USER` / `HF_REPO` 是否和 HF 仓库一致。
 
 **上传报 `Too Many Requests`**
-- HF 的 commit 限流（128 次/小时）。等约 1 小时重跑 `manual-upload.bat`，`upload_folder` 会跳过已上传的、只补传剩余。
-- `upload_hf.py` 每个视频一次 `upload_folder`，553 个视频分几小时跑，或一次跑 100 个左右。
+- HF 的 commit 限流（128 次/小时）。等约 1 小时重跑 `bats/upload-only.bat`，`upload_folder` 会跳过已上传的、只补传剩余。
+- `upload.py` 每 50 个一组，398 个视频大约 8 组，commit 数很少，正常不会撞限流。
 
 **没抓到视频**
 - 重新跑 `pre-login.bat`，TikTok 登录态可能过期。
 - 把 `descargas_simultaneas` 降到 3–4。
-- 换了 `source_url` 后终端里没有 `Intercepted and queued` → 该页面的列表接口不是 `item_list` / `feed`，需要 F12 Network 看实际 XHR URL，把关键字加进 `main.py` / `download_only.py` 的拦截条件。
+- 换了 `source_url` 后终端里没有 `Intercepted and queued` → 该页面的列表接口不是 `item_list` / `feed`，需要 F12 Network 看实际 XHR URL，把关键字加进 `download.py` 的拦截条件。
 
 **`Database is locked`**
-- 跑 `main.py` 前关掉所有 Chrome 窗口，`perfil_navegador/` 只能被一个 Chrome 实例使用。
+- 跑 `download.py` 前关掉所有 Chrome 窗口，`perfil_navegador/` 只能被一个 Chrome 实例使用。
 
 **`ffmpeg not found`**
 - `winget install Gyan.FFmpeg`，然后重开 PowerShell。
+
+**转换很慢**
+- 10 并发转换吃 CPU，机器弱会慢。可以把 `convert.py` / `upload.py` 的 `CONCURRENCY` 降到 5，或者把 `crf` 调到 34、`scale=480:-2` 进一步降画质。
+- 想提高画质：`scale=854:-2`（480p）、`crf 30`、`-b:a 96k`。
 
 **Token 相关**
 - 换 token：`bats/set-token.bat` 覆盖写入，然后关掉所有终端重开。
