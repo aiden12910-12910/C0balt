@@ -350,7 +350,7 @@ TikTok ──Playwright 拦截──▶ yt-dlp 下载
 
 - **`download.py`**：Playwright 打开带登录态的 Chrome，滚动 TikTok 页面，拦截 `item_list` / `feed` 接口的 JSON，把视频 URL 交给 yt-dlp 并发下载 MP4 到 `X:\TikTok_Downloads`。支持分批拦截，每批结束问是否继续，答 `N` 后统一进入下载阶段。
 - **`convert.py`**：先 `ffprobe` 检测每个 MP4 的编码、分辨率、时长。**H.264+AAC 走 `-c copy` 不重编码**（快、画质不变），其他编码走 `libx264` 重编码。先转可 copy 的，提示后再转需重编码的。支持 `--quality low/medium/high` 和 `--scaling mechanical/auto`。默认不删源 MP4；加 `--delete-source` 才在转换成功后删。
-- **`upload.py`**：每 50 个视频一组，`upload_folder` 到 HF 的 `hls/`，成功后删该组本地 HLS。支持 `--convert` 先转再传（和 `convert.py` 一样的两阶段），也支持只上传。加 `--delete-source` 时转换成功后删源 MP4。
+- **`upload.py`**：每 50 个视频一组，`upload_folder` 到 HF 的 `hls/`，成功后删该组本地 HLS。**`--mode normal`（默认）只从 0–3 号正式库按顺序试、满了跳下一个，4 号测试库被排除；`--mode test` 只上传到 4 号测试库。** 支持 `--convert` 先转再传（和 `convert.py` 一样的两阶段），也支持只上传。加 `--delete-source` 时转换成功后删源 MP4。启动时会自动清 `_upload_*` 残留，删除失败会打印 `[warn]`。
 - **Vercel 网页**：`api/fetch-videos.js` 列 `hls/*/index.m3u8`，代理 m3u8 时把分片路径改写成代理 URL，代理 ts 时透传 Range；`index.html` 用 hls.js 播放，分页加载、触底预取、每页随机、暂停/快进图标。
 
 ---
@@ -386,7 +386,17 @@ echo $env:HF_TOKEN
 
 ### 3. 创建 HF 仓库
 
-去 https://huggingface.co/new 建一个 **Model** 仓库，比如 `aiden12910/tiktok-videos`，设为 **Public**。
+去 https://huggingface.co/new 建 **Model** 仓库，设为 **Public**：
+
+| 仓库 | 用途 |
+|---|---|
+| `aiden12910/tiktok-videos` | 正式库 0 |
+| `aiden12910/tiktok-videos-1` | 正式库 1 |
+| `aiden12910/tiktok-videos-2` | 正式库 2 |
+| `aiden12910/tiktok-videos-3` | 正式库 3 |
+| `aiden12910/tiktok-videos-4` | **测试库**（`--mode test` 专用，网页下拉可选） |
+
+不建 4 号也能正常用，只是没有测试库。
 
 ### 4. 配置 `config.json`
 
@@ -482,6 +492,16 @@ echo $env:HF_TOKEN
 
 **上传策略**：`upload.py` 每 50 个视频一组，把这一组的 HLS 目录复制到 `_upload_gN`，一次 `upload_folder` 上传到 HF `hls/`，成功后删 `_upload_gN` 和该组本地 HLS。失败时整组保留，可重跑。HF 的 commit 限流是 128 次/小时，50 个一组后 commit 数很少，基本不会撞限流。
 
+**上传模式**：
+
+| 模式 | 命令 | 候选仓库 | 用途 |
+|---|---|---|---|
+| normal（默认） | `python upload.py` 或 `--mode normal` | `tiktok-videos`、`-1`、`-2`、`-3` | 正式发布，4 号测试库**不碰** |
+| test | `python upload.py --mode test` | `tiktok-videos-4` | 测试上传，不影响正式库 commit 限流 |
+
+- 正常模式按 0 → 1 → 2 → 3 顺序试，一个满了自动跳下一个。
+- 测试库和正式库**独立计算 commit 限流**（128 次/小时），互不影响。
+- 网页顶部下拉框可以切到 `tiktok-videos-4` 单独看测试库，或选 `all` 合并全部。
 ---
 
 ## 网页功能 / Website features
@@ -494,6 +514,7 @@ echo $env:HF_TOKEN
 - **分页懒加载**：每页 20 个，刷到倒数 10 条时自动预取下一页，显示加载动画。
 - **每页随机**：每页请求回来、渲染进 DOM 之前，本页 20 条随机洗牌；刷新页面顺序重新随机。
 - **流式代理**：m3u8 分片路径改写为代理 URL，ts 透传 Range，用户不直连 HF。
+- **多仓库切换**：顶部下拉框可选 `tiktok-videos` 到 `-4`，或 `all` 合并；切换后重新从第 0 页加载。
 - **错误处理**：视频 `error` 时断点重试最多 3 次，仍失败显示错误覆盖层；列表加载失败显示重试按钮；空列表显示“暂无视频”。
 - **到底提示**：滑到底显示 end card 或“暂无视频”。
 
@@ -505,14 +526,14 @@ echo $env:HF_TOKEN
 |---|---|
 | `download.py` | 抓取 + 下载 MP4，支持分批拦截 |
 | `convert.py` | MP4 → HLS。检测编码，H.264+AAC 走 copy，其他重编码；清晰度 low/medium/high，缩放 mechanical/auto；默认不删 MP4 |
-| `upload.py` | 只上传 / 转换+上传（和 `convert.py` 一样的两阶段），50 个一组上传，成功后删本地 HLS |
+| `upload.py` | 只上传 / 转换+上传；`--mode normal` 用 0–3 正式库，`--mode test` 只用 4 号测试库；50 个一组上传，成功后删本地 HLS，启动时自动清 `_upload_*` 残留 |
 | `delete_hf.py` | 删除 HF 仓库所有文件（包括 `hls/` 下的 m3u8 和 ts） |
 | `login.py` | 一次性登录 TikTok，保存 session 到 `perfil_navegador/` |
 | `progress.py` | 单行实时刷新进度条，后台线程每 0.5 秒重绘 |
 | `config.json` | 下载路径、数量、并发、来源 URL |
 | `videos.txt` | 运行时临时文件，记录拦截到的 URL，跑完自动清空 |
 | `index.html` | C0balt 网页前端（hls.js 播放） |
-| `api/fetch-videos.js` | Vercel Serverless：`action=list` 列 m3u8，`action=stream` 代理 m3u8/ts |
+| `api/fetch-videos.js` | Vercel Serverless：`action=list` 列 m3u8（支持 `repo` 过滤），`action=stream` 代理 m3u8/ts |
 | `bats/main-menu.bat` | 集成菜单，所有操作在一个窗口 |
 | `bats/*.bat` | 各项操作的独立入口（见上表） |
 | `perfil_navegador/` | Chrome 登录状态 |
@@ -529,6 +550,14 @@ echo $env:HF_TOKEN
 **上传报 `Too Many Requests`**
 - HF 的 commit 限流（128 次/小时）。等约 1 小时重跑 `bats/upload-only.bat`，`upload_folder` 会跳过已上传的、只补传剩余。
 - `upload.py` 每 50 个一组，398 个视频大约 8 组，commit 数很少，正常不会撞限流。
+- 测试库 4 号和正式库独立限流，测试上传不影响正式库配额。
+
+**上传成功但本地 HLS 没删**
+- 控制台看有没有 `[warn] 删除本地 HLS ... 失败（可能被占用）`。有就是文件被 ffmpeg 残留、播放器、资源管理器预览锁住。
+- 关掉占用程序，手动删 `X:\TikTok_HLS\{base}\`，或下次跑 `upload.py` 时会自动清 `_upload_*` 残留（但不自动删 `{base}`）。
+
+**`X:\TikTok_HLS` 下残留 `_upload_gN`**
+- 上传成功但删临时目录前窗口被关掉。下次跑 `upload.py` 启动时 `cleanup_stale_upload_dirs()` 会自动清，或手动 `Get-ChildItem "X:\TikTok_HLS" -Directory -Filter "_upload_*" | Remove-Item -Recurse -Force`。
 
 **转换报 `[WinError 32] 另一个程序正在使用此文件`**
 - 关掉播放器、资源管理器预览、残留的 ffmpeg 进程，等几秒重跑 `convert.py`。已转好的会跳过，被占用的会重新尝试。
