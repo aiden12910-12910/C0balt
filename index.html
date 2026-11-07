@@ -15,11 +15,21 @@
             position: fixed; top: 0; left: 0; right: 0; height: 56px;
             display: flex; align-items: center; justify-content: space-between;
             padding: 0 16px; z-index: 100; background: #0f0f13; border-bottom: 1px solid #2a2a35;
+            gap: 12px;
         }
-        .topbar h1 { font-size: 20px; letter-spacing: 3px; color: #4ea8de; font-weight: 700; }
+        .topbar h1 { font-size: 20px; letter-spacing: 3px; color: #4ea8de; font-weight: 700; white-space: nowrap; }
+        .topbar-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+        .topbar-left h1 { flex-shrink: 0; }
+        #repo-select {
+            background: #1e1e24; color: #fff; border: 1px solid #2a2a35;
+            border-radius: 6px; padding: 6px 10px; font-size: 13px;
+            max-width: 220px; cursor: pointer;
+        }
+        #repo-select:focus { outline: none; border-color: #4ea8de; }
         .readme-btn {
             background: #4ea8de; color: #0f0f13; border: none; padding: 8px 14px;
             border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none;
+            white-space: nowrap; flex-shrink: 0;
         }
         .feed {
             height: 100dvh; overflow-y: scroll; scroll-snap-type: y mandatory;
@@ -120,7 +130,17 @@
 <body>
 
     <div class="topbar">
-        <h1>C0balt·HLS(HTTP Live Streaming) Version</h1>
+        <div class="topbar-left">
+            <h1>C0balt</h1>
+            <select id="repo-select" title="Video source">
+                <option value="tiktok-videos" selected>tiktok-videos</option>
+                <option value="tiktok-videos-1">tiktok-videos-1</option>
+                <option value="tiktok-videos-2">tiktok-videos-2</option>
+                <option value="tiktok-videos-3">tiktok-videos-3</option>
+                <option value="tiktok-videos-4">tiktok-videos-4</option>
+                <option value="all">全部 / All</option>
+            </select>
+        </div>
         <a class="readme-btn" href="https://github.com/aiden12910-12910/C0balt#readme" target="_blank">README</a>
     </div>
 
@@ -146,20 +166,22 @@
         let observer = null;
         let spinner = null;
         let totalAvailable = null;
+        let currentRepo = 'tiktok-videos';
         const slideNodes = [];
 
         const feed = document.getElementById('feed');
+        const repoSelect = document.getElementById('repo-select');
 
         function showLoading() { if (spinner) { spinner.classList.add('show'); console.log('[load] spinner ON'); } }
         function hideLoading() { if (spinner) { spinner.classList.remove('show'); console.log('[load] spinner OFF'); } }
 
         async function fetchPage(page) {
-            const url = `/api/fetch-videos?action=list&page=${page}&size=${PAGE_SIZE}`;
+            const url = `/api/fetch-videos?action=list&page=${page}&size=${PAGE_SIZE}&repo=${encodeURIComponent(currentRepo)}`;
             console.log('[load] fetching page', page, url);
             const res = await fetch(url, { cache: 'no-store' });
             if (!res.ok) throw new Error('HTTP ' + res.status);
             const data = await res.json();
-            console.log('[load] page', page, 'returned', data.videos.length, 'hasMore', data.hasMore, 'total', data.total);
+            console.log('[load] page', page, 'repo', currentRepo, 'returned', data.videos.length, 'hasMore', data.hasMore, 'total', data.total);
             return data;
         }
 
@@ -271,7 +293,6 @@
             vid.setAttribute('webkit-playsinline', '');
 
             vid.addEventListener('error', () => {
-                // hls.js 模式下由 Hls.Events.ERROR 处理，避免重复重试
                 if (slide._hls) return;
                 const err = vid.error;
                 const code = err ? err.code : 0;
@@ -296,7 +317,6 @@
 
             vid.addEventListener('pause', () => {
                 if (vid.readyState === 0) return;
-                // 只在 slide 仍在视口内时显示暂停图标，避免滑走时误触发
                 const rect = slide.getBoundingClientRect();
                 const inView = rect.bottom > 0 && rect.top < window.innerHeight;
                 if (inView) showPlayStateIcon(slide, '⏸', false);
@@ -337,7 +357,7 @@
         function showEmptyCard() {
             const end = document.createElement('div');
             end.className = 'end-card';
-            end.innerHTML = `<h2>暂无视频</h2><p>Hugging Face 仓库里还没有可播放的 HLS。上传后刷新页面即可。</p>`;
+            end.innerHTML = `<h2>暂无视频</h2><p>当前视频源（${currentRepo}）里还没有可播放的 HLS。上传后刷新页面即可。</p>`;
             feed.appendChild(end);
         }
 
@@ -482,7 +502,18 @@
             }
         });
 
-        async function init() {
+        function resetFeedForRepo(repo) {
+            currentRepo = repo;
+            currentPage = 0;
+            hasMore = true;
+            loading = false;
+            totalLoaded = 0;
+            totalAvailable = null;
+            slideNodes.length = 0;
+            if (observer) {
+                observer.disconnect();
+                observer = null;
+            }
             feed.innerHTML = '';
             const sp = document.createElement('div');
             sp.id = 'loading-spinner';
@@ -490,7 +521,16 @@
             feed.appendChild(sp);
             spinner = sp;
             setupObserver();
-            await loadNextPage();
+            loadNextPage();
+        }
+
+        repoSelect.addEventListener('change', (e) => {
+            console.log('[repo] switched to', e.target.value);
+            resetFeedForRepo(e.target.value);
+        });
+
+        async function init() {
+            resetFeedForRepo(currentRepo);
         }
 
         init();
