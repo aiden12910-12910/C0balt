@@ -16,8 +16,10 @@ TikTok ──Playwright 拦截──▶ yt-dlp 下载
                                   ▼
                          X:\TikTok_Downloads (MP4)
                                   │
-                         convert.py：ffmpeg 转 HLS
-                         （240p / 15fps / crf 40 / hls_time 2 / 48k 音频）
+                         convert.py：先检测编码
+                         H.264+AAC 走 -c copy（不重编码）
+                         其他走 libx264 重编码
+                         清晰度 low/medium/high，缩放 mechanical/auto
                                   │
                                   ▼
                          X:\TikTok_HLS (index.m3u8 + seg_*.ts)
@@ -36,9 +38,9 @@ TikTok ──Playwright 拦截──▶ yt-dlp 下载
                          index.html hls.js 播放
 ```
 
-- **`download.py`**：Playwright 打开带登录态的 Chrome，滚动 TikTok 页面，拦截 `item_list` / `feed` 接口的 JSON，把视频 URL 交给 yt-dlp 并发下载 MP4 到 `X:\TikTok_Downloads`。
-- **`convert.py`**：10 并发把 `X:\TikTok_Downloads` 的 MP4 转成 HLS（240p、15fps、crf 40、2 秒分片、48k 音频），输出到 `X:\TikTok_HLS\{base}\`。默认**不删**源 MP4；加 `--delete-source` 才在转换成功后删。
-- **`upload.py`**：每 50 个视频一组，`upload_folder` 到 HF 的 `hls/`，成功后删该组本地 HLS。支持 `--convert` 先转再传，也支持只上传。加 `--delete-source` 时转换成功后删源 MP4。
+- **`download.py`**：Playwright 打开带登录态的 Chrome，滚动 TikTok 页面，拦截 `item_list` / `feed` 接口的 JSON，把视频 URL 交给 yt-dlp 并发下载 MP4 到 `X:\TikTok_Downloads`。支持分批拦截，每批结束问是否继续，答 `N` 后统一进入下载阶段。
+- **`convert.py`**：先 `ffprobe` 检测每个 MP4 的编码、分辨率、时长。**H.264+AAC 走 `-c copy` 不重编码**（快、画质不变），其他编码走 `libx264` 重编码。先转可 copy 的，提示后再转需重编码的。支持 `--quality low/medium/high` 和 `--scaling mechanical/auto`。默认不删源 MP4；加 `--delete-source` 才在转换成功后删。
+- **`upload.py`**：每 50 个视频一组，`upload_folder` 到 HF 的 `hls/`，成功后删该组本地 HLS。支持 `--convert` 先转再传（和 `convert.py` 一样的两阶段），也支持只上传。加 `--delete-source` 时转换成功后删源 MP4。
 - **Vercel 网页**：`api/fetch-videos.js` 列 `hls/*/index.m3u8`，代理 m3u8 时把分片路径改写成代理 URL，代理 ts 时透传 Range；`index.html` 用 hls.js 播放，分页加载、触底预取、每页随机、暂停/快进图标。
 
 ---
@@ -120,9 +122,9 @@ echo $env:HF_TOKEN
 | 1. Check / install dependencies | 装/更新依赖 |
 | 2. Show and change HF_TOKEN | 显示当前 token（只显示前 8 位），可覆盖修改 |
 | 3. Download only (capture MP4) | 只抓取并下载 MP4 |
-| 4. Convert only (MP4 → HLS) | 只转换，输出到 `X:\TikTok_HLS` |
+| 4. Convert only (MP4 → HLS) | 只转换，输出到 `X:\TikTok_HLS`（问清晰度、缩放模式、是否删源） |
 | 5. Upload only (HLS → HF) | 只上传 `X:\TikTok_HLS` 里已有的 HLS |
-| 6. Convert + Upload | 转换 + 上传（10 并发转换，50 个一组上传） |
+| 6. Convert + Upload | 转换 + 上传（问清晰度、缩放模式、是否删源；10 并发转换，50 个一组上传） |
 | 7. DANGER: Delete ALL FILES from HF | **删除 HF 仓库所有文件**（双重确认） |
 | 8. Exit | 退出 |
 
@@ -131,14 +133,30 @@ echo $env:HF_TOKEN
 | 文件 | 作用 |
 |---|---|
 | `bats/download-only.bat` | 只抓取并下载 MP4，不转换、不上传 |
-| `bats/convert-only.bat` | 只转换：MP4 → HLS，输出到 `X:\TikTok_HLS`（会问是否删源 MP4） |
+| `bats/convert-only.bat` | 只转换：MP4 → HLS。会问清晰度（low/medium/high）、缩放模式（mechanical/auto）、是否删源 MP4 |
 | `bats/upload-only.bat` | 只上传：`X:\TikTok_HLS` → HF `hls/` |
-| `bats/convert-and-upload.bat` | 转换 + 上传（10 并发转换，50 个一组上传，会问是否删源 MP4） |
+| `bats/convert-and-upload.bat` | 转换 + 上传。会问清晰度、缩放模式、是否删源 MP4 |
 | `bats/danger-delete-all.bat` | 删除 HF 仓库所有文件 |
 | `bats/change-source.bat` | 修改 `config.json` 里的 `source_url` |
 | `bats/pre-login.bat` | 重新登录 TikTok |
 | `bats/set-token.bat` | 设置/覆盖 HF Token |
 | `bats/update-requirements.bat` | 安装/更新 Python 依赖和 Playwright Chromium |
+| `bats/not-sleep.bat` | 禁止睡眠和关屏，按任意键恢复 |
+
+**清晰度三档**：
+
+| 档位 | 机械模式（默认） | 自动模式（相对原视频） |
+|---|---|---|
+| `low` | 426×240 / 15fps / crf 40 / 48k | 原分辨率 ×0.4、原 fps ×0.5、crf 40 / 48k |
+| `medium` | 854×480 / 24fps / crf 28 / 96k | 原分辨率 ×0.7、原 fps ×0.8、crf 28 / 96k |
+| `high` | 1280×720 / 30fps / crf 23 / 128k | 原分辨率 ×1.0、原 fps ×1.0、crf 23 / 128k |
+
+**缩放模式**：
+
+- `mechanical`（默认，回车）：固定参数，和上表“机械模式”一致，速度可预测。
+- `auto`：按原视频分辨率/fps 相对缩放，低清源不会被压得太烂，高清源不会被压得太狠，但输出分辨率随源变化，速度不固定。
+
+**H.264+AAC 的视频走 `-c copy`，不重编码，选哪档、哪种缩放模式都不影响画质**，只影响非 H.264 的视频。
 
 **目录约定**：
 
@@ -148,8 +166,9 @@ echo $env:HF_TOKEN
 | `X:\TikTok_HLS` | 转换后的 HLS（`convert.py` / `upload.py --convert` 写入，`upload.py` 上传后删） |
 | `X:\TikTok_HLS\_errors` | 转换失败时 ffmpeg 的完整 stderr |
 | `X:\TikTok_HLS\_failed.txt` | 最后一次转换失败的文件名列表 |
+| `_copy_list.txt` / `_reencode_list.txt` | 转换时临时记录可 copy / 需重编码的文件，跑完自动删除 |
 
-**默认不删源 MP4**。要转换成功后删除，加 `--delete-source`，或在 `convert-only.bat` / `convert-and-upload.bat` 里输 `Y`。
+**默认不删源 MP4**。要转换成功后删除，加 `--delete-source`，或在 bat 里输 `Y`。
 
 **上传策略**：`upload.py` 每 50 个视频一组，把这一组的 HLS 目录复制到 `_upload_gN`，一次 `upload_folder` 上传到 HF `hls/`，成功后删 `_upload_gN` 和该组本地 HLS。失败时整组保留，可重跑。HF 的 commit 限流是 128 次/小时，50 个一组后 commit 数很少，基本不会撞限流。
 
@@ -174,11 +193,12 @@ echo $env:HF_TOKEN
 
 | 文件 | 作用 |
 |---|---|
-| `download.py` | 抓取 + 下载 MP4 |
-| `convert.py` | MP4 → HLS（10 并发，240p/15fps/crf 40/48k 音频），默认不删 MP4 |
-| `upload.py` | 只上传 / 转换+上传（10 并发转换，50 个一组上传），成功后删本地 HLS |
+| `download.py` | 抓取 + 下载 MP4，支持分批拦截 |
+| `convert.py` | MP4 → HLS。检测编码，H.264+AAC 走 copy，其他重编码；清晰度 low/medium/high，缩放 mechanical/auto；默认不删 MP4 |
+| `upload.py` | 只上传 / 转换+上传（和 `convert.py` 一样的两阶段），50 个一组上传，成功后删本地 HLS |
 | `delete_hf.py` | 删除 HF 仓库所有文件（包括 `hls/` 下的 m3u8 和 ts） |
 | `login.py` | 一次性登录 TikTok，保存 session 到 `perfil_navegador/` |
+| `progress.py` | 单行实时刷新进度条，后台线程每 0.5 秒重绘 |
 | `config.json` | 下载路径、数量、并发、来源 URL |
 | `videos.txt` | 运行时临时文件，记录拦截到的 URL，跑完自动清空 |
 | `index.html` | C0balt 网页前端（hls.js 播放） |
@@ -207,6 +227,9 @@ echo $env:HF_TOKEN
 **转换报 `Conversion failed!`**
 - 看 `X:\TikTok_HLS\_errors\{base}.log`，里面是 ffmpeg 的完整 stderr。常见是源 MP4 尾部损坏或不完整，重新下载该视频再转。
 - 失败列表在 `X:\TikTok_HLS\_failed.txt`（只记录最后一次运行）。
+
+**转换进度条“突然跳到 70%”**
+- 进度按“源视频秒数”算，不按个数。可 copy 的视频虽然数量少，但时长可能占大头，copy 阶段一结束，百分比就到 70% 左右，reencode 阶段每个视频短，百分比涨得慢、个数涨得快。这是正常的。
 
 **没抓到视频**
 - 重新跑 `pre-login.bat`，TikTok 登录态可能过期。
