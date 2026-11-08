@@ -132,7 +132,7 @@
     <div class="topbar">
         <div class="topbar-left">
             <h1>C0balt·TikTok Videos(HLS Version)</h1>
-            <select id="repo-select" title="Video source">
+            <select id="repo-select" title="Video source / 视频来源">
                 <option value="tiktok-videos" selected>tiktok-videos</option>
                 <option value="tiktok-videos-1">tiktok-videos-1</option>
                 <option value="tiktok-videos-2">tiktok-videos-2</option>
@@ -144,10 +144,10 @@
         <a class="readme-btn" href="https://github.com/aiden12910-12910/C0balt#readme" target="_blank">README</a>
     </div>
 
-    <div class="mute-hint" id="muteHint">Tap to unmute</div>
+    <div class="mute-hint" id="muteHint">Tap to unmute / 点击取消静音</div>
 
     <div class="feed" id="feed">
-        <div class="status" id="status">Loading videos...</div>
+        <div class="status" id="status">Loading videos... / 正在加载视频...</div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
@@ -186,13 +186,13 @@
         }
 
         function videoErrorText(err) {
-            if (!err) return '未知错误';
+            if (!err) return '未知错误 / Unknown error';
             const code = err.code;
-            if (code === 1) return '加载被中止 (MEDIA_ERR_ABORTED)';
-            if (code === 2) return '网络错误 (MEDIA_ERR_NETWORK)';
-            if (code === 3) return '解码失败 (MEDIA_ERR_DECODE)';
-            if (code === 4) return '格式不支持或文件不完整 (MEDIA_ERR_SRC_NOT_SUPPORTED)';
-            return '错误码 ' + code;
+            if (code === 1) return '加载被中止 / Loading aborted (MEDIA_ERR_ABORTED)';
+            if (code === 2) return '网络错误 / Network error (MEDIA_ERR_NETWORK)';
+            if (code === 3) return '解码失败 / Decode failed (MEDIA_ERR_DECODE)';
+            if (code === 4) return '格式不支持或文件不完整 / Unsupported format or incomplete file (MEDIA_ERR_SRC_NOT_SUPPORTED)';
+            return '错误码 / Error code ' + code;
         }
 
         function showVideoError(slide, video, err, retried) {
@@ -200,14 +200,14 @@
             const box = document.createElement('div');
             box.className = 'video-error';
             box.innerHTML = `
-                <div class="err-title">${retried ? '视频重试后仍失败' : '视频加载失败'}</div>
+                <div class="err-title">${retried ? '视频重试后仍失败 / Video still failed after retries' : '视频加载失败 / Video failed to load'}</div>
                 <div class="err-name"></div>
                 <div class="err-code"></div>
             `;
             box.querySelector('.err-name').textContent = video.name;
             box.querySelector('.err-code').textContent = videoErrorText(err);
             const btn = document.createElement('button');
-            btn.textContent = '重试';
+            btn.textContent = '重试 / Retry';
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 box.remove();
@@ -337,7 +337,7 @@
                 globalMuted = !globalMuted;
                 vid.muted = globalMuted;
                 muteBtn.textContent = globalMuted ? '🔇' : '🔊';
-                showMuteHint(globalMuted ? 'Muted' : 'Unmuted');
+                showMuteHint(globalMuted ? 'Muted / 已静音' : 'Unmuted / 已取消静音');
             });
             actions.appendChild(muteBtn);
 
@@ -357,7 +357,7 @@
         function showEmptyCard() {
             const end = document.createElement('div');
             end.className = 'end-card';
-            end.innerHTML = `<h2>暂无视频</h2><p>当前视频源（${currentRepo}）里还没有可播放的 HLS。上传后刷新页面即可。</p>`;
+            end.innerHTML = `<h2>暂无视频 / No videos</h2><p>当前视频源（${currentRepo}）里还没有可播放的 HLS。上传后刷新页面即可。 / The current source (${currentRepo}) has no playable HLS yet. Upload and refresh.</p>`;
             feed.appendChild(end);
         }
 
@@ -365,11 +365,11 @@
             const box = document.createElement('div');
             box.className = 'feed-error';
             const t = document.createElement('div');
-            t.textContent = '加载视频列表失败';
+            t.textContent = '加载视频列表失败 / Failed to load video list';
             const m = document.createElement('div');
             m.textContent = message || '';
             const btn = document.createElement('button');
-            btn.textContent = '重试';
+            btn.textContent = '重试 / Retry';
             btn.addEventListener('click', () => { box.remove(); retryFn(); });
             box.appendChild(t); box.appendChild(m); box.appendChild(btn);
             feed.appendChild(box);
@@ -392,7 +392,7 @@
                     } else {
                         const end = document.createElement('div');
                         end.className = 'end-card';
-                        end.innerHTML = `<h2>You're all caught up</h2><p>No more videos in this feed.</p>`;
+                        end.innerHTML = `<h2>You're all caught up / 已经到底了</h2><p>No more videos in this feed. / 这个视频源没有更多视频了。</p>`;
                         feed.appendChild(end);
                     }
                     hideLoading();
@@ -424,7 +424,7 @@
                 } else {
                     const end = document.createElement('div');
                     end.className = 'end-card';
-                    end.innerHTML = `<h2>You're all caught up</h2><p>No more videos in this feed.</p>`;
+                    end.innerHTML = `<h2>You're all caught up / 已经到底了</h2><p>No more videos in this feed. / 这个视频源没有更多视频了。</p>`;
                     feed.appendChild(end);
                 }
                 hideLoading();
@@ -517,7 +517,7 @@
             feed.innerHTML = '';
             const sp = document.createElement('div');
             sp.id = 'loading-spinner';
-            sp.innerHTML = '<div class="spinner"></div><div>Loading...</div>';
+            sp.innerHTML = '<div class="spinner"></div><div>Loading... / 加载中...</div>';
             feed.appendChild(sp);
             spinner = sp;
             setupObserver();
