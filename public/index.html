@@ -23,7 +23,7 @@
         #repo-select {
             background: #1e1e24; color: #fff; border: 1px solid #2a2a35;
             border-radius: 6px; padding: 6px 10px; font-size: 13px;
-            max-width: 220px; cursor: pointer;
+            max-width: 260px; cursor: pointer;
         }
         #repo-select:focus { outline: none; border-color: #4ea8de; }
         .readme-btn {
@@ -133,12 +133,12 @@
         <div class="topbar-left">
             <h1>C0balt·TikTok Videos(HLS Version)</h1>
             <select id="repo-select" title="Video source / 视频来源">
-                <option value="tiktok-videos" selected>tiktok-videos</option>
+                <option value="all" selected>全部 / All（不含测试库 / no test repo）</option>
+                <option value="tiktok-videos">tiktok-videos</option>
                 <option value="tiktok-videos-1">tiktok-videos-1</option>
                 <option value="tiktok-videos-2">tiktok-videos-2</option>
                 <option value="tiktok-videos-3">tiktok-videos-3</option>
-                <option value="tiktok-videos-4">tiktok-videos-4</option>
-                <option value="all">全部 / All</option>
+                <option value="tiktok-videos-4">tiktok-videos-4（测试库 / TEST）</option>
             </select>
         </div>
         <a class="readme-btn" href="https://github.com/aiden12910-12910/C0balt#readme" target="_blank">README</a>
@@ -166,7 +166,7 @@
         let observer = null;
         let spinner = null;
         let totalAvailable = null;
-        let currentRepo = 'tiktok-videos';
+        let currentRepo = 'all';
         const slideNodes = [];
 
         const feed = document.getElementById('feed');
