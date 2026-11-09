@@ -77,7 +77,7 @@ playwright install chromium
 powershell
 echo $env:HF_TOKEN
 text
-
+```
 ---
 
 
@@ -110,7 +110,7 @@ cantidad_videos	每次抓取目标数量（也兼容 video_count）
 descargas_simultaneas	并发下载数，建议 4–8（也兼容 concurrent_downloads）
 source_url	抓取来源，默认 For You（也兼容 url_origen）
 text
-
+```
 ---
 
 
@@ -147,7 +147,7 @@ src/index.js 顶部的 HF_USER / HF_REPOS 必须和你的 HF 仓库一致，改�
 本地 Python 脚本（download.py / convert.py / upload.py）不需要部署，装好依赖、配好 config.json 后直接双击 bats/ 里的 bat 运行即可。只有网页侧（public/index.html + src/index.js）需要推到 GitHub 并部署到 Cloudflare Workers。
 
 text
-
+```
 ---
 
 
