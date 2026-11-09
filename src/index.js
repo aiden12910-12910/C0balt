@@ -8,6 +8,8 @@ const HF_REPOS = [
 ];
 const HF_BASE = (repo) => `https://huggingface.co/${HF_USER}/${repo}/resolve/main/`;
 
+const TEST_REPO = 'tiktok-videos-4';
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -40,7 +42,11 @@ export default {
         }
       }
 
-      if (repoFilter !== 'all') all = all.filter(x => x.repo === repoFilter);
+      if (repoFilter === 'all') {
+        all = all.filter(x => x.repo !== TEST_REPO);
+      } else {
+        all = all.filter(x => x.repo === repoFilter);
+      }
       all.sort((a, b) => a.name.localeCompare(b.name));
 
       const start = page * size;
