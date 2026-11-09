@@ -3,8 +3,7 @@
 仿 TikTok「For You」风格的全屏竖滑视频网站。本地用 TikPipe 从 TikTok 抓取视频，用 ffmpeg 转成 HLS（m3u8 + ts），上传到 Hugging Face，Cloudflare Workers 托管的网页用 hls.js 播放。
 
 A TikTok-style full-screen vertical video feed. Videos are captured locally from TikTok, converted to HLS with ffmpeg, uploaded to Hugging Face, and played on a Cloudflare Workers-hosted website using hls.js.
-第 2 段：架构图
-markdown
+
 ---
 
 ## 架构 / Architecture
@@ -44,16 +43,14 @@ text
 
 ---
 
-### 第 3 段：架构列表
 
-```markdown
+
+
 - **`download.py`**：Playwright 打开带登录态的 Chrome，滚动 TikTok 页面，拦截 `item_list` / `feed` 接口的 JSON，把视频 URL 交给 yt-dlp 并发下载 MP4 到 `X:\TikTok_Downloads`。支持分批拦截，每批结束问是否继续，答 `N` 后统一进入下载阶段。
 - **`convert.py`**：先 `ffprobe` 检测每个 MP4 的编码、分辨率、时长。**H.264+AAC 走 `-c copy` 不重编码**（快、画质不变），其他编码走 `libx264` 重编码。先转可 copy 的，提示后再转需重编码的。支持 `--quality low/medium/high` 和 `--scaling mechanical/auto`。默认不删源 MP4；加 `--delete-source` 才在转换成功后删。
 - **`upload.py`**：每 50 个视频一组，`upload_folder` 到 HF 的 `hls/`，成功后删该组本地 HLS。**`--mode normal`（默认）只从 0–3 号正式库按顺序试、满了跳下一个，4 号测试库被排除；`--mode test` 只上传到 4 号测试库。** 支持 `--convert` 先转再传，也支持只上传。加 `--delete-source` 时转换成功后删源 MP4。启动时会自动清 `_upload_*` 残留，删除失败会打印 `[warn]`。
 - **Cloudflare Workers 网页**：`src/index.js` 列 `hls/*/index.m3u8`，`repo=all` 排除 4 号测试库，单独选 `tiktok-videos-4` 时只返回测试库；代理 m3u8 时把分片路径改写成代理 URL，代理 ts 时透传 Range；`public/index.html` 用 hls.js 播放，分页加载、触底预取、每页随机、暂停/快进图标、顶部仓库下拉切换。
-第 4 段：前置要求
-markdown
----
+
 
 ## 前置要求 / Prerequisites
 
@@ -63,9 +60,7 @@ markdown
 - Google Chrome（官方安装版）
 - 一个 Hugging Face 账号
 - ffmpeg（`winget install Gyan.FFmpeg`，装完重开 PowerShell）
-第 5 段：第一次配置 1–2
-markdown
----
+
 
 ## 第一次配置 / First-time setup
 
@@ -85,9 +80,7 @@ text
 
 ---
 
-### 第 6 段：第一次配置 3–4
 
-```markdown
 ### 3. 创建 HF 仓库
 
 去 https://huggingface.co/new 建 **Model** 仓库，设为 **Public**：
@@ -120,16 +113,13 @@ text
 
 ---
 
-### 第 7 段：第一次配置 5
 
-```markdown
 ### 5. 登录 TikTok（一次即可）
 
 双击 `bats/pre-login.bat`，弹出 Chrome。登录 Google 和 TikTok，然后**关掉窗口**。登录态保存到 `perfil_navegador/`。
 
 > 运行 `download.py` 前关掉其他 Chrome 窗口，否则会报 `Database is locked`。
-第 8 段：第一次配置 6（部署）
-markdown
+
 ### 6. 部署网页到 Cloudflare Workers
 
 项目结构：
@@ -160,9 +150,7 @@ text
 
 ---
 
-### 第 9 段：日常使用 菜单和 bat 表
 
-```markdown
 ---
 
 ## 日常使用 / Daily use
@@ -194,8 +182,7 @@ text
 | `bats/set-token.bat` | 设置/覆盖 HF Token |
 | `bats/update-requirements.bat` | 安装/更新 Python 依赖和 Playwright Chromium |
 | `bats/not-sleep.bat` | 禁止睡眠和关屏，按任意键恢复 |
-第 10 段：清晰度、缩放、上传模式
-markdown
+
 **清晰度三档**：
 
 | 档位 | 机械模式（默认） | 自动模式（相对原视频） |
@@ -221,8 +208,7 @@ markdown
 - 正常模式按 0 → 1 → 2 → 3 顺序试，一个满了自动跳下一个。
 - 测试库和正式库**独立计算 commit 限流**（128 次/小时），互不影响。
 - 网页顶部下拉框可以切到 `tiktok-videos-4` 单独看测试库，或选 `all` 合并正式库（不含 4 号）。
-第 11 段：目录约定和上传策略
-markdown
+
 **目录约定**：
 
 | 目录 | 用途 |
@@ -236,8 +222,7 @@ markdown
 **默认不删源 MP4**。要转换成功后删除，加 `--delete-source`，或在 bat 里输 `Y`。
 
 **上传策略**：`upload.py` 每 50 个视频一组，把这一组的 HLS 目录复制到 `_upload_gN`，一次 `upload_folder` 上传到 HF `hls/`，成功后删 `_upload_gN` 和该组本地 HLS。失败时整组保留，可重跑。HF 的 commit 限流是 128 次/小时，50 个一组后 commit 数很少，基本不会撞限流。
-第 12 段：网页功能
-markdown
+
 ---
 
 ## 网页功能 / Website features
@@ -253,8 +238,7 @@ markdown
 - **多仓库切换**：顶部下拉框可选 `tiktok-videos` 到 `-4`，或 `all`；`all` 不含 4 号测试库，切到 `tiktok-videos-4` 单独看测试库；切换后重新从第 0 页加载。
 - **错误处理**：视频 `error` 时断点重试最多 3 次，仍失败显示错误覆盖层；列表加载失败显示重试按钮；空列表显示“暂无视频”。
 - **到底提示**：滑到底显示 end card 或“暂无视频”。
-第 13 段：文件说明
-markdown
+
 ---
 
 ## 文件说明 / File overview
@@ -276,8 +260,7 @@ markdown
 | `bats/*.bat` | 各项操作的独立入口（见上表） |
 | `perfil_navegador/` | Chrome 登录状态 |
 | `requirements.txt` | Python 依赖：yt-dlp / curl_cffi / playwright / huggingface_hub |
-第 14 段：常见问题
-markdown
+
 ---
 
 ## 常见问题 / Troubleshooting
@@ -332,8 +315,7 @@ markdown
 
 **下载整个 HF 仓库**
 - 用 `hf download aiden12910/tiktok-videos --repo-type model --include "hls/*" --local-dir X:\TikTok_HLS_Backup`，只下 HLS，不碰旧 MP4。
-第 15 段：免责声明
-markdown
+
 ---
 
 ## 免责声明 / Disclaimer
