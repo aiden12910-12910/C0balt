@@ -1,0 +1,14 @@
+{
+  "name": "c0balt",
+  "compatibility_date": "2026-11-08",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "VIDEO_KV",
+      "id": "你的KV命名空间ID"
+    }
+  ]
+}
