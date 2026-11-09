@@ -8,52 +8,8 @@ const HF_REPOS = [
 ];
 const HF_BASE = (repo) => `https://huggingface.co/${HF_USER}/${repo}/resolve/main/`;
 
-const KV_KEY = 'video_list_v1';
-const KV_TTL_SECONDS = 300;
-
-async function listAllFiles(env) {
-  if (env.VIDEO_KV) {
-    try {
-      const cached = await env.VIDEO_KV.get(KV_KEY, 'json');
-      if (cached && Array.isArray(cached) && cached.length > 0) {
-        console.log('[list] KV hit,', cached.length, 'items');
-        return cached;
-      }
-    } catch (e) {
-      console.error('[list] KV read failed:', e.message);
-    }
-  }
-
-  console.log('[list] KV miss, fetching HF');
-  let all = [];
-  for (const repo of HF_REPOS) {
-    try {
-      const r = await fetch(`https://huggingface.co/api/models/${HF_USER}/${repo}`);
-      if (!r.ok) continue;
-      const data = await r.json();
-      const names = (data.siblings || [])
-        .map(f => f.rfilename)
-        .filter(n => n.endsWith('/index.m3u8'));
-      for (const n of names) all.push({ name: n, repo });
-    } catch (e) {
-      console.error(`[list] ${repo} failed:`, e.message);
-    }
-  }
-
-  if (env.VIDEO_KV && all.length > 0) {
-    try {
-      await env.VIDEO_KV.put(KV_KEY, JSON.stringify(all), { expirationTtl: KV_TTL_SECONDS });
-      console.log('[list] KV written,', all.length, 'items');
-    } catch (e) {
-      console.error('[list] KV write failed:', e.message);
-    }
-  }
-
-  return all;
-}
-
 export default {
-  async fetch(request, env, ctx) {
+  async fetch(request, env) {
     const url = new URL(request.url);
 
     if (!url.pathname.startsWith('/api/')) {
@@ -68,35 +24,42 @@ export default {
       const page = parseInt(url.searchParams.get('page') || '0', 10);
       const size = Math.min(parseInt(url.searchParams.get('size') || '20', 10), 50);
       const repoFilter = url.searchParams.get('repo') || 'all';
-      try {
-        let all = await listAllFiles(env);
-        if (repoFilter !== 'all') {
-          all = all.filter(x => x.repo === repoFilter);
+
+      let all = [];
+      for (const repo of HF_REPOS) {
+        try {
+          const r = await fetch(`https://huggingface.co/api/models/${HF_USER}/${repo}`);
+          if (!r.ok) continue;
+          const data = await r.json();
+          const names = (data.siblings || [])
+            .map(f => f.rfilename)
+            .filter(n => n.endsWith('/index.m3u8'));
+          for (const n of names) all.push({ name: n, repo });
+        } catch (e) {
+          console.error(`[list] ${repo} failed:`, e.message);
         }
-        all.sort((a, b) => a.name.localeCompare(b.name));
-        const start = page * size;
-        const slice = all.slice(start, start + size);
-        const hasMore = start + size < all.length;
-        const videos = slice.map(x => ({
-          name: x.name,
-          repo: x.repo,
-          url: `/api/fetch-videos?action=stream&repo=${encodeURIComponent(x.repo)}&name=${encodeURIComponent(x.name)}`,
-        }));
-        return new Response(JSON.stringify({ page, size, total: all.length, hasMore, videos }), {
-          status: 200,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-            'Cache-Control': 'public, max-age=30, s-maxage=30',
-          },
-        });
-      } catch (e) {
-        console.error('[list] error:', e);
-        return new Response(JSON.stringify({ error: e.message }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
       }
+
+      if (repoFilter !== 'all') all = all.filter(x => x.repo === repoFilter);
+      all.sort((a, b) => a.name.localeCompare(b.name));
+
+      const start = page * size;
+      const slice = all.slice(start, start + size);
+      const hasMore = start + size < all.length;
+      const videos = slice.map(x => ({
+        name: x.name,
+        repo: x.repo,
+        url: `/api/fetch-videos?action=stream&repo=${encodeURIComponent(x.repo)}&name=${encodeURIComponent(x.name)}`,
+      }));
+
+      return new Response(JSON.stringify({ page, size, total: all.length, hasMore, videos }), {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+          'Cache-Control': 'public, max-age=30, s-maxage=30',
+        },
+      });
     }
 
     if (action === 'stream') {
@@ -115,7 +78,6 @@ export default {
       try {
         const hfRes = await fetch(hfUrl, { headers });
         if (!hfRes.ok && hfRes.status !== 206) {
-          console.error(`[stream] HF ${hfRes.status} for ${repo}/${name}`);
           return new Response(`HF ${hfRes.status}`, { status: hfRes.status, headers: corsHeaders });
         }
 
@@ -150,7 +112,6 @@ export default {
           headers: outHeaders,
         });
       } catch (e) {
-        console.error(`[stream] error for ${name}:`, e);
         return new Response('Stream error', { status: 500, headers: corsHeaders });
       }
     }
