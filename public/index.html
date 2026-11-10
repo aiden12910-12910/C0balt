@@ -288,7 +288,7 @@
             const vid = document.createElement('video');
             vid.loop = true;
             vid.playsInline = true;
-            vid.muted = true;
+            vid.muted = globalMuted;
             vid.preload = 'metadata';
             vid.setAttribute('webkit-playsinline', '');
 
@@ -330,13 +330,21 @@
             const actions = document.createElement('div');
             actions.className = 'side-actions';
             const muteBtn = document.createElement('button');
-            muteBtn.className = 'action-btn';
+            muteBtn.className = 'action-btn mute-btn';
             muteBtn.textContent = globalMuted ? '🔇' : '🔊';
             muteBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 globalMuted = !globalMuted;
-                vid.muted = globalMuted;
-                muteBtn.textContent = globalMuted ? '🔇' : '🔊';
+                
+                // 核心修复：遍历所有视频，统一静音状态
+                document.querySelectorAll('.video-slide video').forEach(v => {
+                    v.muted = globalMuted;
+                });
+                // 同步所有静音按钮的图标
+                document.querySelectorAll('.mute-btn').forEach(btn => {
+                    btn.textContent = globalMuted ? '🔇' : '🔊';
+                });
+                
                 showMuteHint(globalMuted ? 'Muted / 已静音' : 'Unmuted / 已取消静音');
             });
             actions.appendChild(muteBtn);
