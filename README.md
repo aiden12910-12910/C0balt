@@ -7,7 +7,7 @@ A TikTok-style full-screen vertical video feed. Videos are captured locally from
 ---
 
 ## 架构 / Architecture
-
+```
 本地 (Windows)                              云端 (Cloudflare)
 ─────────────────                          ─────────────────────────────
 TikTok ──Playwright 拦截──▶ yt-dlp 下载
@@ -38,7 +38,7 @@ TikTok ──Playwright 拦截──▶ yt-dlp 下载
                          Cloudflare Workers (C0balt)
                          src/index.js 代理 m3u8/ts
                          public/index.html hls.js 播放
-
+```
 - download.py：Playwright 打开带登录态的 Chrome，滚动 TikTok 页面，拦截 item_list / feed 接口的 JSON，把视频 URL 交给 yt-dlp 并发下载 MP4 到 config.json 的 ruta_descargas。支持分批拦截，每批结束问是否继续，答 N 后统一进入下载阶段。
 - convert.py：先 ffprobe 检测每个 MP4 的编码、分辨率、时长。H.264+AAC 走 -c copy 不重编码（快、画质不变），其他编码走 libx264 重编码。先转可 copy 的，提示后再转需重编码的。支持 --quality low/medium/high 和 --scaling mechanical/auto。默认不删源 MP4；加 --delete-source 才在转换成功后删。
 - upload.py：每 50 个视频一组，upload_folder 到 HF 的 hls/，成功后删该组本地 HLS。--mode normal（默认）只从 0–3 号正式库按顺序试、满了跳下一个，4 号测试库被排除；--mode test 只上传到 4 号测试库。支持 --convert 先转再传（和 convert.py 一样的两阶段），也支持只上传。加 --delete-source 时转换成功后删源 MP4。启动时会自动清 _upload_* 残留，删除失败会打印 [warn]。
@@ -87,7 +87,7 @@ aiden12910/tiktok-videos-4          测试库（--mode test 专用，网页下�
 不建 4 号也能正常用，只是没有测试库。
 
 ### 4. 配置 config.json
-
+```
 {
     "ruta_descargas": "X:\\TikTok_Downloads",
     "hls_output_dir": "X:\\TikTok_HLS",
@@ -96,7 +96,7 @@ aiden12910/tiktok-videos-4          测试库（--mode test 专用，网页下�
     "descargas_simultaneas": 6,
     "source_url": "https://www.tiktok.com/foryou"
 }
-
+```
 键                          含义
 ruta_descargas              下载目录（也兼容 download_path）
 hls_output_dir              HLS 输出目录
@@ -114,14 +114,14 @@ source_url                  抓取来源，默认 For You（也兼容 url_origen
 ### 6. 部署网页到 Cloudflare Workers
 
 项目结构：
-
+```
 TikPipe-main/
 ├── wrangler.jsonc
 ├── public/
 │   └── index.html
 └── src/
     └── index.js
-
+```
 1. 把 wrangler.jsonc、public/index.html、src/index.js 推到 GitHub 仓库。
 2. 终端在项目根目录跑：
 
@@ -221,7 +221,7 @@ _copy_list.txt / _reencode_list.txt 转换时临时记录可 copy / 需重编码
 ---
 
 ## 文件说明 / File overview
-
+```
 文件                                作用
 download.py                         抓取 + 下载 MP4，支持分批拦截
 convert.py                          MP4 → HLS。检测编码，H.264+AAC 走 copy，其他重编码；清晰度 low/medium/high，缩放 mechanical/auto；默认不删 MP4
@@ -239,7 +239,7 @@ bats/main-menu.bat                  集成菜单，所有操作在一个窗口
 bats/*.bat                          各项操作的独立入口（见上表）
 perfil_navegador/                   Chrome 登录状态
 requirements.txt                    Python 依赖：yt-dlp / curl_cffi / playwright / huggingface_hub
-
+```
 ---
 
 ## 常见问题 / Troubleshooting
@@ -305,7 +305,8 @@ Token 相关
 ---
 
 ## 免责声明 / Disclaimer
-
+```
 本项目仅供个人使用和学习。下载的视频版权归原作者所有，请勿公开传播。请勿使用本工具绕过访问控制或违反 TikTok 服务条款。
 
 This project is for personal use and learning only. Downloaded videos are copyrighted by their original creators. Do not redistribute them publicly. Do not use this tool to bypass access controls or violate TikTok's Terms of Service.
+```
